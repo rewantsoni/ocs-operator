@@ -3,13 +3,13 @@ package storagecluster
 import (
 	"context"
 	"fmt"
-
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -46,54 +46,57 @@ func (r *StorageClusterReconciler) newCephBlockPoolInstances(initData *ocsv1.Sto
 	poolName := generateNameForCephBlockPool(initData)
 	poolNamespace := initData.Namespace
 
+	blockpool := &cephv1.CephBlockPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      poolName,
+			Namespace: poolNamespace,
+		},
+		Spec: cephv1.NamedBlockPoolSpec{
+			PoolSpec: cephv1.PoolSpec{
+				DeviceClass:    generateDeviceClass(initData),
+				FailureDomain:  getFailureDomain(initData),
+				Replicated:     generateCephReplicatedSpec(initData, "data"),
+				EnableRBDStats: true,
+			},
+		},
+	}
+
 	if initData.Spec.Mirroring.Enabled {
 		mirroringSpec.Enabled = true
 		mirroringSpec.Mode = "image"
 		mirroringPeerSpec := r.addPeerSecretsToCephBlockPool(initData, poolName, poolNamespace)
 		mirroringSpec.Peers = &mirroringPeerSpec
+		blockpool.Spec.Mirroring = mirroringSpec
 	}
 
 	ret := []*cephv1.CephBlockPool{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      poolName,
-				Namespace: poolNamespace,
-			},
-			Spec: cephv1.NamedBlockPoolSpec{
-				PoolSpec: cephv1.PoolSpec{
-					DeviceClass:    generateDeviceClass(initData),
-					FailureDomain:  getFailureDomain(initData),
-					Replicated:     generateCephReplicatedSpec(initData, "data"),
-					EnableRBDStats: true,
-					Mirroring:      mirroringSpec,
-				},
-			},
-		},
+		blockpool,
 	}
 
 	// Create Non-Resilient CephBlockPools if enabled
 	if initData.Spec.ManagedResources.CephNonResilientPools.Enable {
 		for _, failureDomainValue := range initData.Status.FailureDomainValues {
-			ret = append(ret,
-				&cephv1.CephBlockPool{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      generateNameForNonResilientCephBlockPool(initData, failureDomainValue),
-						Namespace: initData.Namespace,
-					},
-					Spec: cephv1.NamedBlockPoolSpec{
-						PoolSpec: cephv1.PoolSpec{
-							DeviceClass:   failureDomainValue,
-							FailureDomain: getFailureDomain(initData),
-							Replicated: cephv1.ReplicatedSpec{
-								Size:                   1,
-								RequireSafeReplicaSize: false,
-							},
-							EnableRBDStats: true,
-							Mirroring:      mirroringSpec,
+			tempCephBlockPool := &cephv1.CephBlockPool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      generateNameForNonResilientCephBlockPool(initData, failureDomainValue),
+					Namespace: initData.Namespace,
+				},
+				Spec: cephv1.NamedBlockPoolSpec{
+					PoolSpec: cephv1.PoolSpec{
+						DeviceClass:   failureDomainValue,
+						FailureDomain: getFailureDomain(initData),
+						Replicated: cephv1.ReplicatedSpec{
+							Size:                   1,
+							RequireSafeReplicaSize: false,
 						},
+						EnableRBDStats: true,
 					},
 				},
-			)
+			}
+			if initData.Spec.Mirroring.Enabled {
+				tempCephBlockPool.Spec.Mirroring = mirroringSpec
+			}
+			ret = append(ret, tempCephBlockPool)
 		}
 
 	}
@@ -155,9 +158,11 @@ func (obj *ocsCephBlockPools) ensureCreated(r *StorageClusterReconciler, instanc
 			}
 
 			r.Log.Info("Restoring original CephBlockPool.", "CephBlockPool", klog.KRef(cephBlockPool.Namespace, cephBlockPool.Name))
-			existing.ObjectMeta.OwnerReferences = cephBlockPool.ObjectMeta.OwnerReferences
-			existing.Spec = cephBlockPool.Spec
-			err = r.Client.Update(context.TODO(), &existing)
+			_, err := ctrl.CreateOrUpdate(context.TODO(), r.Client, &existing, func() error {
+				existing.ObjectMeta.OwnerReferences = cephBlockPool.ObjectMeta.OwnerReferences
+				existing.Spec = cephBlockPool.Spec
+				return nil
+			})
 			if err != nil {
 				r.Log.Error(err, "Failed to update CephBlockPool.", "CephBlockPool", klog.KRef(cephBlockPool.Namespace, cephBlockPool.Name))
 				return reconcile.Result{}, err
