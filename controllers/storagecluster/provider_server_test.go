@@ -25,9 +25,9 @@ import (
 
 func TestOcsProviderServerEnsureCreated(t *testing.T) {
 
-	t.Run("Ensure that Deployment,Service,Secret is created when AllowRemoteStorageConsumers is enabled", func(t *testing.T) {
+	t.Run("Ensure that Deployment,Service,Secret is created", func(t *testing.T) {
 
-		r, instance := createSetupForOcsProviderTest(t, true, "")
+		r, instance := createSetupForOcsProviderTest(t, "")
 
 		obj := &ocsProviderServer{}
 		res, err := obj.ensureCreated(r, instance)
@@ -94,9 +94,9 @@ func TestOcsProviderServerEnsureCreated(t *testing.T) {
 		assert.Equal(t, "true", cm.Data[deployCSIKey])
 	})
 
-	t.Run("Ensure that Deployment,Service,Secret is created when AllowRemoteStorageConsumers and ProviderAPIServerServiceType set to loadBalancer", func(t *testing.T) {
+	t.Run("Ensure that Deployment,Service,Secret is created when ProviderAPIServerServiceType set to loadBalancer", func(t *testing.T) {
 
-		r, instance := createSetupForOcsProviderTest(t, true, corev1.ServiceTypeLoadBalancer)
+		r, instance := createSetupForOcsProviderTest(t, corev1.ServiceTypeLoadBalancer)
 
 		obj := &ocsProviderServer{}
 		res, err := obj.ensureCreated(r, instance)
@@ -163,9 +163,9 @@ func TestOcsProviderServerEnsureCreated(t *testing.T) {
 		assert.Equal(t, "true", cm.Data[deployCSIKey])
 	})
 
-	t.Run("Ensure that Deployment,Service,Secret is created when AllowRemoteStorageConsumers and ProviderAPIServerServiceType set to ClusterIP", func(t *testing.T) {
+	t.Run("Ensure that Deployment,Service,Secret is created when ProviderAPIServerServiceType set to ClusterIP", func(t *testing.T) {
 
-		r, instance := createSetupForOcsProviderTest(t, true, corev1.ServiceTypeClusterIP)
+		r, instance := createSetupForOcsProviderTest(t, corev1.ServiceTypeClusterIP)
 
 		obj := &ocsProviderServer{}
 		res, err := obj.ensureCreated(r, instance)
@@ -227,9 +227,9 @@ func TestOcsProviderServerEnsureCreated(t *testing.T) {
 		assert.Equal(t, "true", cm.Data[deployCSIKey])
 	})
 
-	t.Run("Ensure that Service is not created when AllowRemoteStorageConsumers is enabled and ProviderAPIServerServiceType is set to any other value than NodePort, ClusterIP or LoadBalancer", func(t *testing.T) {
+	t.Run("Ensure that Service is not created when ProviderAPIServerServiceType is set to any other value than NodePort, ClusterIP or LoadBalancer", func(t *testing.T) {
 
-		r, instance := createSetupForOcsProviderTest(t, true, corev1.ServiceTypeExternalName)
+		r, instance := createSetupForOcsProviderTest(t, corev1.ServiceTypeExternalName)
 
 		obj := &ocsProviderServer{}
 		_, err := obj.ensureCreated(r, instance)
@@ -240,39 +240,13 @@ func TestOcsProviderServerEnsureCreated(t *testing.T) {
 		assert.True(t, errors.IsNotFound(r.Client.Get(context.TODO(), client.ObjectKeyFromObject(service), service)))
 	})
 
-	t.Run("Ensure that Deployment,Service,Secret is not created when AllowRemoteStorageConsumers is disabled", func(t *testing.T) {
-
-		r, instance := createSetupForOcsProviderTest(t, false, "")
-
-		obj := &ocsProviderServer{}
-		_, err := obj.ensureCreated(r, instance)
-
-		assert.NoError(t, err)
-
-		assertNotFoundProviderResources(t, r.Client)
-	})
 }
 
 func TestOcsProviderServerEnsureDeleted(t *testing.T) {
 
-	t.Run("Ensure that Deployment,Service,Secret is deleted when AllowRemoteStorageConsumers is disabled", func(t *testing.T) {
-
-		r, instance := createSetupForOcsProviderTest(t, true, "")
-		obj := &ocsProviderServer{}
-		// create resources and ignore error as it should be tested via TestOcsProviderServerEnsureCreated
-		_, _ = obj.ensureCreated(r, instance)
-
-		instance.Spec.AllowRemoteStorageConsumers = false
-		// the resources will be deleted through the ensureCreated func as we are not in the deletion phase
-		_, err := obj.ensureCreated(r, instance)
-		assert.NoError(t, err)
-
-		assertNotFoundProviderResources(t, r.Client)
-	})
-
 	t.Run("Ensure that Deployment,Service,Secret is deleted while uninstalling", func(t *testing.T) {
 
-		r, instance := createSetupForOcsProviderTest(t, true, "")
+		r, instance := createSetupForOcsProviderTest(t, "")
 		obj := &ocsProviderServer{}
 		// create resources and ignore error as it should be tested via TestOcsProviderServerEnsureCreated
 		_, _ = obj.ensureCreated(r, instance)
@@ -303,7 +277,7 @@ func assertNotFoundProviderResources(t *testing.T, cli client.Client) {
 
 }
 
-func createSetupForOcsProviderTest(t *testing.T, allowRemoteStorageConsumers bool, providerAPIServerServiceType corev1.ServiceType) (*StorageClusterReconciler, *ocsv1.StorageCluster) {
+func createSetupForOcsProviderTest(t *testing.T, providerAPIServerServiceType corev1.ServiceType) (*StorageClusterReconciler, *ocsv1.StorageCluster) {
 
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -339,7 +313,6 @@ func createSetupForOcsProviderTest(t *testing.T, allowRemoteStorageConsumers boo
 
 	instance := &ocsv1.StorageCluster{
 		Spec: ocsv1.StorageClusterSpec{
-			AllowRemoteStorageConsumers:  allowRemoteStorageConsumers,
 			ProviderAPIServerServiceType: providerAPIServerServiceType,
 		},
 	}
