@@ -38,6 +38,13 @@ service OCSProvider {
 
   rpc ReportStatus(ReportStatusRequest)
   returns (ReportStatusResponse){}
+
+  rpc RunMaintenanceMode (RunMaintenanceModeRequest)
+  returns (RunMaintenanceModeResponse) {}
+
+  rpc GetMaintenanceModeStatus (GetMaintenanceModeStatusRequest)
+  returns (GetMaintenanceModeStatusResponse) {}
+
 }
 
 // OnboardConsumerRequest holds the required information to validate the consumer and create StorageConsumer
@@ -171,4 +178,25 @@ message ReportStatusRequest{
 message ReportStatusResponse{
     // Contains subscription channel of provider operator for client operator to match
     string desiredClientOperatorChannel = 1;
+}
+
+message RunMaintenanceModeRequest {
+  // K8s UID (UUID) of the consumer cluster
+  string storageConsumerUUID = 1;
+  // ExternalResource holds the configuration data of the maintenance mode
+  ExternalResource externalResource = 2;
+}
+
+message RunMaintenanceModeResponse {}
+
+message GetMaintenanceModeStatusRequest {
+  // K8s UID (UUID) of the consumer cluster
+  string storageConsumerUUID = 1;
+  // MaintenanceModeName is the name for the MaintenanceMode CR
+  string MaintenanceModeName = 2;
+}
+
+message GetMaintenanceModeStatusResponse {
+  // MaintenanceModeStatus contains the status of the maintenance mode that is watched by Ramen
+  bytes MaintenanceModeStatus = 1;
 }

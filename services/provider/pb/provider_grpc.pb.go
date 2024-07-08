@@ -37,6 +37,8 @@ type OCSProviderClient interface {
 	// specific resources.
 	GetStorageClaimConfig(ctx context.Context, in *StorageClaimConfigRequest, opts ...grpc.CallOption) (*StorageClaimConfigResponse, error)
 	ReportStatus(ctx context.Context, in *ReportStatusRequest, opts ...grpc.CallOption) (*ReportStatusResponse, error)
+	RunMaintenanceMode(ctx context.Context, in *RunMaintenanceModeRequest, opts ...grpc.CallOption) (*RunMaintenanceModeResponse, error)
+	GetMaintenanceModeStatus(ctx context.Context, in *GetMaintenanceModeStatusRequest, opts ...grpc.CallOption) (*GetMaintenanceModeStatusResponse, error)
 }
 
 type oCSProviderClient struct {
@@ -119,6 +121,24 @@ func (c *oCSProviderClient) ReportStatus(ctx context.Context, in *ReportStatusRe
 	return out, nil
 }
 
+func (c *oCSProviderClient) RunMaintenanceMode(ctx context.Context, in *RunMaintenanceModeRequest, opts ...grpc.CallOption) (*RunMaintenanceModeResponse, error) {
+	out := new(RunMaintenanceModeResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/RunMaintenanceMode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oCSProviderClient) GetMaintenanceModeStatus(ctx context.Context, in *GetMaintenanceModeStatusRequest, opts ...grpc.CallOption) (*GetMaintenanceModeStatusResponse, error) {
+	out := new(GetMaintenanceModeStatusResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/GetMaintenanceModeStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OCSProviderServer is the server API for OCSProvider service.
 // All implementations must embed UnimplementedOCSProviderServer
 // for forward compatibility
@@ -142,6 +162,8 @@ type OCSProviderServer interface {
 	// specific resources.
 	GetStorageClaimConfig(context.Context, *StorageClaimConfigRequest) (*StorageClaimConfigResponse, error)
 	ReportStatus(context.Context, *ReportStatusRequest) (*ReportStatusResponse, error)
+	RunMaintenanceMode(context.Context, *RunMaintenanceModeRequest) (*RunMaintenanceModeResponse, error)
+	GetMaintenanceModeStatus(context.Context, *GetMaintenanceModeStatusRequest) (*GetMaintenanceModeStatusResponse, error)
 	mustEmbedUnimplementedOCSProviderServer()
 }
 
@@ -172,6 +194,12 @@ func (UnimplementedOCSProviderServer) GetStorageClaimConfig(context.Context, *St
 }
 func (UnimplementedOCSProviderServer) ReportStatus(context.Context, *ReportStatusRequest) (*ReportStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportStatus not implemented")
+}
+func (UnimplementedOCSProviderServer) RunMaintenanceMode(context.Context, *RunMaintenanceModeRequest) (*RunMaintenanceModeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunMaintenanceMode not implemented")
+}
+func (UnimplementedOCSProviderServer) GetMaintenanceModeStatus(context.Context, *GetMaintenanceModeStatusRequest) (*GetMaintenanceModeStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMaintenanceModeStatus not implemented")
 }
 func (UnimplementedOCSProviderServer) mustEmbedUnimplementedOCSProviderServer() {}
 
@@ -330,6 +358,42 @@ func _OCSProvider_ReportStatus_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OCSProvider_RunMaintenanceMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunMaintenanceModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).RunMaintenanceMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/RunMaintenanceMode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).RunMaintenanceMode(ctx, req.(*RunMaintenanceModeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OCSProvider_GetMaintenanceModeStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMaintenanceModeStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).GetMaintenanceModeStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/GetMaintenanceModeStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).GetMaintenanceModeStatus(ctx, req.(*GetMaintenanceModeStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OCSProvider_ServiceDesc is the grpc.ServiceDesc for OCSProvider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -368,6 +432,14 @@ var OCSProvider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReportStatus",
 			Handler:    _OCSProvider_ReportStatus_Handler,
+		},
+		{
+			MethodName: "RunMaintenanceMode",
+			Handler:    _OCSProvider_RunMaintenanceMode_Handler,
+		},
+		{
+			MethodName: "GetMaintenanceModeStatus",
+			Handler:    _OCSProvider_GetMaintenanceModeStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
