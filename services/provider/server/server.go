@@ -722,3 +722,11 @@ func (s *OCSProviderServer) getOCSSubscriptionChannel(ctx context.Context) (stri
 	}
 	return subscription.Spec.Channel, nil
 }
+
+func (s *OCSProviderServer) RunMaintenanceMode(_ context.Context, _ *pb.RunMaintenanceModeRequest) (*pb.RunMaintenanceModeResponse, error) {
+	return &pb.RunMaintenanceModeResponse{}, nil
+}
+
+func (s *OCSProviderServer) GetMaintenanceModeStatus(_ context.Context, _ *pb.GetMaintenanceModeStatusRequest) (*pb.GetMaintenanceModeStatusResponse, error) {
+	return &pb.GetMaintenanceModeStatusResponse{}, nil
+}
