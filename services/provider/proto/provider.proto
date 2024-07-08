@@ -38,6 +38,16 @@ service OCSProvider {
 
   rpc ReportStatus(ReportStatusRequest)
   returns (ReportStatusResponse){}
+
+  rpc StartMaintenanceMode (StartMaintenanceModeRequest)
+  returns (StartMaintenanceModeResponse) {}
+
+  rpc StopMaintenanceMode (StopMaintenanceModeRequest)
+  returns (StopMaintenanceModeResponse) {}
+
+  rpc GetMaintenanceModeStatus (GetMaintenanceModeStatusRequest)
+  returns (GetMaintenanceModeStatusResponse) {}
+
 }
 
 // OnboardConsumerRequest holds the required information to validate the consumer and create StorageConsumer
@@ -181,4 +191,34 @@ message ReportStatusResponse{
     // Contains hash of desired config
     string desiredConfigHash = 2;
     
+}
+
+message StartMaintenanceModeRequest {
+  // K8s UID (UUID) of the consumer cluster
+  string storageConsumerUUID = 1;
+  // ExternalResource holds the configuration data of the maintenance mode
+  ExternalResource externalResource = 2;
+}
+
+message StartMaintenanceModeResponse {}
+
+message StopMaintenanceModeRequest {
+  // K8s UID (UUID) of the consumer cluster
+  string storageConsumerUUID = 1;
+  // MaintenanceModeName is the name for the MaintenanceMode CR
+  string MaintenanceModeName = 2;
+}
+
+message StopMaintenanceModeResponse {}
+
+message GetMaintenanceModeStatusRequest {
+  // K8s UID (UUID) of the consumer cluster
+  string storageConsumerUUID = 1;
+  // MaintenanceModeName is the name for the MaintenanceMode CR
+  string MaintenanceModeName = 2;
+}
+
+message GetMaintenanceModeStatusResponse {
+  // MaintenanceModeStatus contains the status of the maintenance mode that is watched by Ramen
+  bytes MaintenanceModeStatus = 1;
 }

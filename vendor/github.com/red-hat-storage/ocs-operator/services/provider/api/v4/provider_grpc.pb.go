@@ -37,6 +37,9 @@ type OCSProviderClient interface {
 	// specific resources.
 	GetStorageClaimConfig(ctx context.Context, in *StorageClaimConfigRequest, opts ...grpc.CallOption) (*StorageClaimConfigResponse, error)
 	ReportStatus(ctx context.Context, in *ReportStatusRequest, opts ...grpc.CallOption) (*ReportStatusResponse, error)
+	StartMaintenanceMode(ctx context.Context, in *StartMaintenanceModeRequest, opts ...grpc.CallOption) (*StartMaintenanceModeResponse, error)
+	StopMaintenanceMode(ctx context.Context, in *StopMaintenanceModeRequest, opts ...grpc.CallOption) (*StopMaintenanceModeResponse, error)
+	GetMaintenanceModeStatus(ctx context.Context, in *GetMaintenanceModeStatusRequest, opts ...grpc.CallOption) (*GetMaintenanceModeStatusResponse, error)
 }
 
 type oCSProviderClient struct {
@@ -119,6 +122,33 @@ func (c *oCSProviderClient) ReportStatus(ctx context.Context, in *ReportStatusRe
 	return out, nil
 }
 
+func (c *oCSProviderClient) StartMaintenanceMode(ctx context.Context, in *StartMaintenanceModeRequest, opts ...grpc.CallOption) (*StartMaintenanceModeResponse, error) {
+	out := new(StartMaintenanceModeResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/StartMaintenanceMode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oCSProviderClient) StopMaintenanceMode(ctx context.Context, in *StopMaintenanceModeRequest, opts ...grpc.CallOption) (*StopMaintenanceModeResponse, error) {
+	out := new(StopMaintenanceModeResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/StopMaintenanceMode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oCSProviderClient) GetMaintenanceModeStatus(ctx context.Context, in *GetMaintenanceModeStatusRequest, opts ...grpc.CallOption) (*GetMaintenanceModeStatusResponse, error) {
+	out := new(GetMaintenanceModeStatusResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/GetMaintenanceModeStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OCSProviderServer is the server API for OCSProvider service.
 // All implementations must embed UnimplementedOCSProviderServer
 // for forward compatibility
@@ -142,6 +172,9 @@ type OCSProviderServer interface {
 	// specific resources.
 	GetStorageClaimConfig(context.Context, *StorageClaimConfigRequest) (*StorageClaimConfigResponse, error)
 	ReportStatus(context.Context, *ReportStatusRequest) (*ReportStatusResponse, error)
+	StartMaintenanceMode(context.Context, *StartMaintenanceModeRequest) (*StartMaintenanceModeResponse, error)
+	StopMaintenanceMode(context.Context, *StopMaintenanceModeRequest) (*StopMaintenanceModeResponse, error)
+	GetMaintenanceModeStatus(context.Context, *GetMaintenanceModeStatusRequest) (*GetMaintenanceModeStatusResponse, error)
 	mustEmbedUnimplementedOCSProviderServer()
 }
 
@@ -172,6 +205,15 @@ func (UnimplementedOCSProviderServer) GetStorageClaimConfig(context.Context, *St
 }
 func (UnimplementedOCSProviderServer) ReportStatus(context.Context, *ReportStatusRequest) (*ReportStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportStatus not implemented")
+}
+func (UnimplementedOCSProviderServer) StartMaintenanceMode(context.Context, *StartMaintenanceModeRequest) (*StartMaintenanceModeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartMaintenanceMode not implemented")
+}
+func (UnimplementedOCSProviderServer) StopMaintenanceMode(context.Context, *StopMaintenanceModeRequest) (*StopMaintenanceModeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopMaintenanceMode not implemented")
+}
+func (UnimplementedOCSProviderServer) GetMaintenanceModeStatus(context.Context, *GetMaintenanceModeStatusRequest) (*GetMaintenanceModeStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMaintenanceModeStatus not implemented")
 }
 func (UnimplementedOCSProviderServer) mustEmbedUnimplementedOCSProviderServer() {}
 
@@ -330,6 +372,60 @@ func _OCSProvider_ReportStatus_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OCSProvider_StartMaintenanceMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartMaintenanceModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).StartMaintenanceMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/StartMaintenanceMode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).StartMaintenanceMode(ctx, req.(*StartMaintenanceModeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OCSProvider_StopMaintenanceMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopMaintenanceModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).StopMaintenanceMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/StopMaintenanceMode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).StopMaintenanceMode(ctx, req.(*StopMaintenanceModeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OCSProvider_GetMaintenanceModeStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMaintenanceModeStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).GetMaintenanceModeStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/GetMaintenanceModeStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).GetMaintenanceModeStatus(ctx, req.(*GetMaintenanceModeStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OCSProvider_ServiceDesc is the grpc.ServiceDesc for OCSProvider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -368,6 +464,18 @@ var OCSProvider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReportStatus",
 			Handler:    _OCSProvider_ReportStatus_Handler,
+		},
+		{
+			MethodName: "StartMaintenanceMode",
+			Handler:    _OCSProvider_StartMaintenanceMode_Handler,
+		},
+		{
+			MethodName: "StopMaintenanceMode",
+			Handler:    _OCSProvider_StopMaintenanceMode_Handler,
+		},
+		{
+			MethodName: "GetMaintenanceModeStatus",
+			Handler:    _OCSProvider_GetMaintenanceModeStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
