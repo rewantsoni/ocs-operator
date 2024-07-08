@@ -3,12 +3,14 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	pb "github.com/red-hat-storage/ocs-operator/services/provider/api/v4"
 	ifaces "github.com/red-hat-storage/ocs-operator/services/provider/api/v4/interfaces"
 
+	ramenv1alpha1 "github.com/ramendr/ramen/api/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -210,4 +212,66 @@ func (cc *OCSProviderClient) ReportStatus(ctx context.Context, consumerUUID stri
 	defer cancel()
 
 	return cc.Client.ReportStatus(apiCtx, req)
+}
+
+func (cc *OCSProviderClient) StartMaintenanceMode(ctx context.Context, consumerUUID string, maintenanceMode *ramenv1alpha1.MaintenanceMode) (*pb.StartMaintenanceModeResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("provider client is closed")
+	}
+
+	extRes := &pb.ExternalResource{}
+	extRes.Name = maintenanceMode.Name
+	extRes.Labels = maintenanceMode.Labels
+	extRes.Annotations = maintenanceMode.Annotations
+	extRes.Data = mustMarshal(maintenanceMode)
+
+	req := &pb.StartMaintenanceModeRequest{
+		StorageConsumerUUID: consumerUUID,
+		ExternalResource:    extRes,
+	}
+
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.StartMaintenanceMode(apiCtx, req)
+}
+
+func (cc *OCSProviderClient) StopMaintenanceMode(ctx context.Context, consumerUUID, maintenanceModeName string) (*pb.StopMaintenanceModeResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("provider client is closed")
+	}
+
+	req := &pb.StopMaintenanceModeRequest{
+		StorageConsumerUUID: consumerUUID,
+		MaintenanceModeName: maintenanceModeName,
+	}
+
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.StopMaintenanceMode(apiCtx, req)
+}
+
+func (cc *OCSProviderClient) GetMaintenanceModeStatus(ctx context.Context, consumerUUID, maintenanceModeName string) (*pb.GetMaintenanceModeStatusResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("provider client is closed")
+	}
+
+	req := &pb.GetMaintenanceModeStatusRequest{
+		StorageConsumerUUID: consumerUUID,
+		MaintenanceModeName: maintenanceModeName,
+	}
+
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.GetMaintenanceModeStatus(apiCtx, req)
+}
+
+func mustMarshal[T any](value T) []byte {
+	newData, err := json.Marshal(value)
+	if err != nil {
+		panic("failed to marshal")
+	}
+	return newData
 }

@@ -211,3 +211,38 @@ func (cc *OCSProviderClient) ReportStatus(ctx context.Context, consumerUUID stri
 
 	return cc.Client.ReportStatus(apiCtx, req)
 }
+
+func (cc *OCSProviderClient) RunMaintenanceMode(ctx context.Context, consumerUUID string, maintenanceModeName string, data []byte) (*pb.RunMaintenanceModeResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("Provider client is closed")
+	}
+
+	req := &pb.RunMaintenanceModeRequest{
+		StorageConsumerUUID: consumerUUID,
+		ExternalResource: &pb.ExternalResource{
+			Name: maintenanceModeName,
+			Kind: "MaintenanceMode",
+			Data: data,
+		},
+	}
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.RunMaintenanceMode(apiCtx, req)
+}
+
+func (cc *OCSProviderClient) GetMaintenanceModeStatus(ctx context.Context, consumerUUID string, maintenanceModeName string) (*pb.GetMaintenanceModeStatusResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("Provider client is closed")
+	}
+
+	req := &pb.GetMaintenanceModeStatusRequest{
+		StorageConsumerUUID: consumerUUID,
+		MaintenanceModeName: maintenanceModeName,
+	}
+	req.StorageConsumerUUID = consumerUUID
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.GetMaintenanceModeStatus(apiCtx, req)
+}
