@@ -57,7 +57,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metrics "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/red-hat-storage/ocs-operator/v4/controllers/crd"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/ocsinitialization"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/platform"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/storagecluster"
@@ -168,6 +167,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	// apiclient.New() returns a client without cache.
+	// cache is not initialized before mgr.Start()
+	// we need this because we need to interact with OperatorCondition
+	apiClient, err := apiclient.New(mgr.GetConfig(), apiclient.Options{
+		Scheme: mgr.GetScheme(),
+	})
+	if err != nil {
+		setupLog.Error(err, "Unable to get Client")
+		os.Exit(1)
+	}
+
+	availCrds, err := util.MapCRDAvailability(context.Background(), apiClient, util.GetCrds()...)
+	if err != nil {
+		setupLog.Error(err, "Unable to get CRD")
+		os.Exit(1)
+	}
+
 	if err = (&ocsinitialization.OCSInitializationReconciler{
 		Client:            mgr.GetClient(),
 		Log:               ctrl.Log.WithName("controllers").WithName("OCSInitialization"),
@@ -185,6 +201,7 @@ func main() {
 		Scheme:            mgr.GetScheme(),
 		OperatorNamespace: operatorNamespace,
 		OperatorCondition: condition,
+		AvailableCrds:     availCrds,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StorageCluster")
 		os.Exit(1)
@@ -240,33 +257,6 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", storagecluster.ReadinessChecker); err != nil {
 		setupLog.Error(err, "unable add a readiness check")
 		os.Exit(1)
-	}
-
-	// apiclient.New() returns a client without cache.
-	// cache is not initialized before mgr.Start()
-	// we need this because we need to interact with OperatorCondition
-	apiClient, err := apiclient.New(mgr.GetConfig(), apiclient.Options{
-		Scheme: mgr.GetScheme(),
-	})
-	if err != nil {
-		setupLog.Error(err, "Unable to get Client")
-		os.Exit(1)
-	}
-
-	availCrds, err := util.MapCRDAvailability(context.Background(), apiClient, util.CRDList...)
-	if err != nil {
-		setupLog.Error(err, "Unable to get CRD")
-		os.Exit(1)
-	}
-	if len(util.CRDList) > 0 {
-		if err = (&crd.CustomResourceDefinitionReconciler{
-			Client:        mgr.GetClient(),
-			Log:           ctrl.Log.WithName("controllers").WithName("CustomResourceDefinitionReconciler"),
-			AvailableCrds: availCrds,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CustomResourceDefinitionReconciler")
-			os.Exit(1)
-		}
 	}
 
 	// Set OperatorCondition Upgradeable to True

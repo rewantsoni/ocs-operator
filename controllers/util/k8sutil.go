@@ -45,7 +45,9 @@ const (
 	OwnerUIDIndexName = "ownerUID"
 )
 
-var CRDList []string
+func GetCrds() []string {
+	return []string{}
+}
 
 // GetWatchNamespace returns the namespace the operator should be watching for changes
 func GetWatchNamespace() (string, error) {
