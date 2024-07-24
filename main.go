@@ -57,6 +57,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metrics "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/crd"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/ocsinitialization"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/platform"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/storagecluster"
@@ -250,6 +251,22 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "Unable to get Client")
 		os.Exit(1)
+	}
+
+	availCrds, err := util.MapCRDAvailability(context.Background(), apiClient, util.CRDList...)
+	if err != nil {
+		setupLog.Error(err, "Unable to get CRD")
+		os.Exit(1)
+	}
+	if len(util.CRDList) > 0 {
+		if err = (&crd.CustomResourceDefinitionReconciler{
+			Client:        mgr.GetClient(),
+			Log:           ctrl.Log.WithName("controllers").WithName("CustomResourceDefinitionReconciler"),
+			AvailableCrds: availCrds,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CustomResourceDefinitionReconciler")
+			os.Exit(1)
+		}
 	}
 
 	// Set OperatorCondition Upgradeable to True
