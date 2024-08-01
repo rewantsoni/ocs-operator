@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/crd"
 	"os"
 	"runtime"
 
@@ -249,6 +250,21 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "Unable to get Client")
+		os.Exit(1)
+	}
+
+	availCrds, err := util.MapCRDAvailability(context.Background(), apiClient, util.CRDList...)
+	if err != nil {
+		setupLog.Error(err, "Unable to get CRD")
+		os.Exit(1)
+	}
+
+	if err = (&crd.CustomResourceDefinitionReconciler{
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("CustomResourceDefinitionReconciler"),
+		AvailableCrds: availCrds,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CustomResourceDefinitionReconciler")
 		os.Exit(1)
 	}
 
