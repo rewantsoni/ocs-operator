@@ -38,6 +38,12 @@ service OCSProvider {
 
   rpc ReportStatus(ReportStatusRequest)
   returns (ReportStatusResponse){}
+
+  rpc GetClientInfo (GetClientInfoRequest)
+  returns (GetClientInfoResponse){}
+
+  rpc GetBlockPoolsInfo (GetBlockPoolsInfoRequest)
+  returns (GetBlockPoolsInfoResponse){}
 }
 
 // OnboardConsumerRequest holds the required information to validate the consumer and create StorageConsumer
@@ -119,11 +125,12 @@ message FulfillStorageClaimRequest{
     string storageConsumerUUID = 2;
     // encryption method of the storageClaim.
     string encryptionMethod = 3;
-    // StorageType of the storageClaim
+    // StorageType can be either block or sharedfile
     enum StorageType {
       SHAREDFILE = 0;
       BLOCK = 1;
     }
+    // StorageType of the storageClaim
     StorageType storageType = 4;
     // storageProfile of the storageClaim.
     string storageProfile = 5;
@@ -180,5 +187,29 @@ message ReportStatusResponse{
     string desiredClientOperatorChannel = 1;
     // Contains hash of desired config
     string desiredConfigHash = 2;
-    
+
+}
+
+message GetClientInfoRequest{
+    // storageClusterUID is k8s UID for StorageCluster
+    string storageClusterUID = 1;
+    // clientID is the k8s UID of the storageConsumer
+    string clientID = 2;
+}
+
+message GetClientInfoResponse{
+  string radosNamespace = 1;
+}
+
+message GetBlockPoolsInfoRequest{
+  // storageClusterUID is k8s UID for StorageCluster
+  string storageClusterUID = 1;
+}
+
+message BlockPoolInfo{
+  ExternalResource bootstrapSecret = 1;
+}
+
+message GetBlockPoolsInfoResponse{
+  repeated BlockPoolInfo blockPoolInfo = 1;
 }
