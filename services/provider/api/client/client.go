@@ -141,11 +141,11 @@ func (cc *OCSProviderClient) FulfillStorageClaim(
 	if cc.Client == nil || cc.clientConn == nil {
 		return nil, fmt.Errorf("provider client is closed")
 	}
-	var st pb.FulfillStorageClaimRequest_StorageType
+	var st pb.StorageType
 	if storageType == StorageTypeSharedFile {
-		st = pb.FulfillStorageClaimRequest_SHAREDFILE
+		st = pb.StorageType_SHAREDFILE
 	} else if storageType == StorageTypeBlock {
-		st = pb.FulfillStorageClaimRequest_BLOCK
+		st = pb.StorageType_BLOCK
 	}
 
 	req := &pb.FulfillStorageClaimRequest{
@@ -210,4 +210,35 @@ func (cc *OCSProviderClient) ReportStatus(ctx context.Context, consumerUUID stri
 	defer cancel()
 
 	return cc.Client.ReportStatus(apiCtx, req)
+}
+
+func (cc *OCSProviderClient) GetClientInfo(ctx context.Context, storageClusterUID, storageConsumerUID string) (*pb.GetClientInfoResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("Provider client is closed")
+	}
+
+	req := &pb.GetClientInfoRequest{
+		StorageClusterUID: storageClusterUID,
+		ClientID:          storageConsumerUID,
+	}
+
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.GetClientInfo(apiCtx, req)
+}
+
+func (cc *OCSProviderClient) GetBlockPoolsInfo(ctx context.Context, storageClusterUID string) (*pb.GetBlockPoolsInfoResponse, error) {
+	if cc.Client == nil || cc.clientConn == nil {
+		return nil, fmt.Errorf("Provider client is closed")
+	}
+
+	req := &pb.GetBlockPoolsInfoRequest{
+		StorageClusterUID: storageClusterUID,
+	}
+
+	apiCtx, cancel := context.WithTimeout(ctx, cc.timeout)
+	defer cancel()
+
+	return cc.Client.GetBlockPoolsInfo(apiCtx, req)
 }
