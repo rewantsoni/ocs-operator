@@ -21,7 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// StorageType of the storageClaim
+// StorageType can be either block or sharedfile
 type FulfillStorageClaimRequest_StorageType int32
 
 const (
@@ -565,8 +565,9 @@ type FulfillStorageClaimRequest struct {
 	// K8s UID (UUID) of the consumer cluster.
 	StorageConsumerUUID string `protobuf:"bytes,2,opt,name=storageConsumerUUID,proto3" json:"storageConsumerUUID,omitempty"`
 	// encryption method of the storageClaim.
-	EncryptionMethod string                                 `protobuf:"bytes,3,opt,name=encryptionMethod,proto3" json:"encryptionMethod,omitempty"`
-	StorageType      FulfillStorageClaimRequest_StorageType `protobuf:"varint,4,opt,name=storageType,proto3,enum=provider.FulfillStorageClaimRequest_StorageType" json:"storageType,omitempty"`
+	EncryptionMethod string `protobuf:"bytes,3,opt,name=encryptionMethod,proto3" json:"encryptionMethod,omitempty"`
+	// StorageType of the storageClaim
+	StorageType FulfillStorageClaimRequest_StorageType `protobuf:"varint,4,opt,name=storageType,proto3,enum=provider.FulfillStorageClaimRequest_StorageType" json:"storageType,omitempty"`
 	// storageProfile of the storageClaim.
 	StorageProfile string `protobuf:"bytes,5,opt,name=storageProfile,proto3" json:"storageProfile,omitempty"`
 }
@@ -1038,6 +1039,252 @@ func (x *ReportStatusResponse) GetDesiredConfigHash() string {
 	return ""
 }
 
+type GetClientInfoRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// storageClusterUID is k8s UID for StorageCluster
+	StorageClusterUID string `protobuf:"bytes,1,opt,name=storageClusterUID,proto3" json:"storageClusterUID,omitempty"`
+	// clientID is the k8s UID of the storageConsumer
+	ClientID string `protobuf:"bytes,2,opt,name=clientID,proto3" json:"clientID,omitempty"`
+}
+
+func (x *GetClientInfoRequest) Reset() {
+	*x = GetClientInfoRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_provider_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetClientInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetClientInfoRequest) ProtoMessage() {}
+
+func (x *GetClientInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_provider_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetClientInfoRequest.ProtoReflect.Descriptor instead.
+func (*GetClientInfoRequest) Descriptor() ([]byte, []int) {
+	return file_provider_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetClientInfoRequest) GetStorageClusterUID() string {
+	if x != nil {
+		return x.StorageClusterUID
+	}
+	return ""
+}
+
+func (x *GetClientInfoRequest) GetClientID() string {
+	if x != nil {
+		return x.ClientID
+	}
+	return ""
+}
+
+type GetClientInfoResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	RadosNamespace string `protobuf:"bytes,1,opt,name=radosNamespace,proto3" json:"radosNamespace,omitempty"`
+}
+
+func (x *GetClientInfoResponse) Reset() {
+	*x = GetClientInfoResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_provider_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetClientInfoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetClientInfoResponse) ProtoMessage() {}
+
+func (x *GetClientInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_provider_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetClientInfoResponse.ProtoReflect.Descriptor instead.
+func (*GetClientInfoResponse) Descriptor() ([]byte, []int) {
+	return file_provider_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetClientInfoResponse) GetRadosNamespace() string {
+	if x != nil {
+		return x.RadosNamespace
+	}
+	return ""
+}
+
+type GetBlockPoolsInfoRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// storageClusterUID is k8s UID for StorageCluster
+	StorageClusterUID string `protobuf:"bytes,1,opt,name=storageClusterUID,proto3" json:"storageClusterUID,omitempty"`
+}
+
+func (x *GetBlockPoolsInfoRequest) Reset() {
+	*x = GetBlockPoolsInfoRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_provider_proto_msgTypes[19]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetBlockPoolsInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBlockPoolsInfoRequest) ProtoMessage() {}
+
+func (x *GetBlockPoolsInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_provider_proto_msgTypes[19]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBlockPoolsInfoRequest.ProtoReflect.Descriptor instead.
+func (*GetBlockPoolsInfoRequest) Descriptor() ([]byte, []int) {
+	return file_provider_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetBlockPoolsInfoRequest) GetStorageClusterUID() string {
+	if x != nil {
+		return x.StorageClusterUID
+	}
+	return ""
+}
+
+type BlockPoolInfo struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	BootstrapSecret *ExternalResource `protobuf:"bytes,1,opt,name=bootstrapSecret,proto3" json:"bootstrapSecret,omitempty"`
+}
+
+func (x *BlockPoolInfo) Reset() {
+	*x = BlockPoolInfo{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_provider_proto_msgTypes[20]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BlockPoolInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockPoolInfo) ProtoMessage() {}
+
+func (x *BlockPoolInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_provider_proto_msgTypes[20]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockPoolInfo.ProtoReflect.Descriptor instead.
+func (*BlockPoolInfo) Descriptor() ([]byte, []int) {
+	return file_provider_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *BlockPoolInfo) GetBootstrapSecret() *ExternalResource {
+	if x != nil {
+		return x.BootstrapSecret
+	}
+	return nil
+}
+
+type GetBlockPoolsInfoResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	BlockPoolInfo []*BlockPoolInfo `protobuf:"bytes,1,rep,name=blockPoolInfo,proto3" json:"blockPoolInfo,omitempty"`
+}
+
+func (x *GetBlockPoolsInfoResponse) Reset() {
+	*x = GetBlockPoolsInfoResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_provider_proto_msgTypes[21]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetBlockPoolsInfoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBlockPoolsInfoResponse) ProtoMessage() {}
+
+func (x *GetBlockPoolsInfoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_provider_proto_msgTypes[21]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBlockPoolsInfoResponse.ProtoReflect.Descriptor instead.
+func (*GetBlockPoolsInfoResponse) Descriptor() ([]byte, []int) {
+	return file_provider_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *GetBlockPoolsInfoResponse) GetBlockPoolInfo() []*BlockPoolInfo {
+	if x != nil {
+		return x.BlockPoolInfo
+	}
+	return nil
+}
+
 var File_provider_proto protoreflect.FileDescriptor
 
 var file_provider_proto_rawDesc = []byte{
@@ -1185,7 +1432,33 @@ var file_provider_proto_rawDesc = []byte{
 	0x74, 0x6f, 0x72, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x12, 0x2c, 0x0a, 0x11, 0x64, 0x65,
 	0x73, 0x69, 0x72, 0x65, 0x64, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x48, 0x61, 0x73, 0x68, 0x18,
 	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x11, 0x64, 0x65, 0x73, 0x69, 0x72, 0x65, 0x64, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x48, 0x61, 0x73, 0x68, 0x32, 0x87, 0x06, 0x0a, 0x0b, 0x4f, 0x43, 0x53,
+	0x6e, 0x66, 0x69, 0x67, 0x48, 0x61, 0x73, 0x68, 0x22, 0x60, 0x0a, 0x14, 0x47, 0x65, 0x74, 0x43,
+	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x2c, 0x0a, 0x11, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x75, 0x73, 0x74,
+	0x65, 0x72, 0x55, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x11, 0x73, 0x74, 0x6f,
+	0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x55, 0x49, 0x44, 0x12, 0x1a,
+	0x0a, 0x08, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x44, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x08, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x44, 0x22, 0x3f, 0x0a, 0x15, 0x47, 0x65,
+	0x74, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x72, 0x61, 0x64, 0x6f, 0x73, 0x4e, 0x61, 0x6d, 0x65,
+	0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x72, 0x61, 0x64,
+	0x6f, 0x73, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x48, 0x0a, 0x18, 0x47,
+	0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x50, 0x6f, 0x6f, 0x6c, 0x73, 0x49, 0x6e, 0x66, 0x6f,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2c, 0x0a, 0x11, 0x73, 0x74, 0x6f, 0x72, 0x61,
+	0x67, 0x65, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x55, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x11, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x75, 0x73, 0x74,
+	0x65, 0x72, 0x55, 0x49, 0x44, 0x22, 0x55, 0x0a, 0x0d, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x50, 0x6f,
+	0x6f, 0x6c, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x44, 0x0a, 0x0f, 0x62, 0x6f, 0x6f, 0x74, 0x73, 0x74,
+	0x72, 0x61, 0x70, 0x53, 0x65, 0x63, 0x72, 0x65, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x1a, 0x2e, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x45, 0x78, 0x74, 0x65, 0x72,
+	0x6e, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x0f, 0x62, 0x6f, 0x6f,
+	0x74, 0x73, 0x74, 0x72, 0x61, 0x70, 0x53, 0x65, 0x63, 0x72, 0x65, 0x74, 0x22, 0x5a, 0x0a, 0x19,
+	0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x50, 0x6f, 0x6f, 0x6c, 0x73, 0x49, 0x6e, 0x66,
+	0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x0d, 0x62, 0x6c, 0x6f,
+	0x63, 0x6b, 0x50, 0x6f, 0x6f, 0x6c, 0x49, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x17, 0x2e, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x42, 0x6c, 0x6f, 0x63,
+	0x6b, 0x50, 0x6f, 0x6f, 0x6c, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x0d, 0x62, 0x6c, 0x6f, 0x63, 0x6b,
+	0x50, 0x6f, 0x6f, 0x6c, 0x49, 0x6e, 0x66, 0x6f, 0x32, 0xbb, 0x07, 0x0a, 0x0b, 0x4f, 0x43, 0x53,
 	0x50, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x12, 0x58, 0x0a, 0x0f, 0x4f, 0x6e, 0x62, 0x6f,
 	0x61, 0x72, 0x64, 0x43, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65, 0x72, 0x12, 0x20, 0x2e, 0x70, 0x72,
 	0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x4f, 0x6e, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x43, 0x6f,
@@ -1234,8 +1507,19 @@ var file_provider_proto_rawDesc = []byte{
 	0x6f, 0x72, 0x74, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x1a, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x52, 0x65, 0x70, 0x6f,
 	0x72, 0x74, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x00, 0x42, 0x0f, 0x5a, 0x0d, 0x2e, 0x2f, 0x3b, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65,
-	0x72, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x22, 0x00, 0x12, 0x52, 0x0a, 0x0d, 0x47, 0x65, 0x74, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49,
+	0x6e, 0x66, 0x6f, 0x12, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x47,
+	0x65, 0x74, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x47,
+	0x65, 0x74, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x5e, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f,
+	0x63, 0x6b, 0x50, 0x6f, 0x6f, 0x6c, 0x73, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x22, 0x2e, 0x70, 0x72,
+	0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x50,
+	0x6f, 0x6f, 0x6c, 0x73, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x23, 0x2e, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2e, 0x47, 0x65, 0x74, 0x42, 0x6c,
+	0x6f, 0x63, 0x6b, 0x50, 0x6f, 0x6f, 0x6c, 0x73, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x0f, 0x5a, 0x0d, 0x2e, 0x2f, 0x3b, 0x70, 0x72, 0x6f,
+	0x76, 0x69, 0x64, 0x65, 0x72, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1251,7 +1535,7 @@ func file_provider_proto_rawDescGZIP() []byte {
 }
 
 var file_provider_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_provider_proto_goTypes = []interface{}{
 	(FulfillStorageClaimRequest_StorageType)(0), // 0: provider.FulfillStorageClaimRequest.StorageType
 	(*OnboardConsumerRequest)(nil),              // 1: provider.OnboardConsumerRequest
@@ -1271,36 +1555,47 @@ var file_provider_proto_goTypes = []interface{}{
 	(*StorageClaimConfigResponse)(nil),          // 15: provider.StorageClaimConfigResponse
 	(*ReportStatusRequest)(nil),                 // 16: provider.ReportStatusRequest
 	(*ReportStatusResponse)(nil),                // 17: provider.ReportStatusResponse
-	nil,                                         // 18: provider.ExternalResource.LabelsEntry
-	nil,                                         // 19: provider.ExternalResource.AnnotationsEntry
+	(*GetClientInfoRequest)(nil),                // 18: provider.GetClientInfoRequest
+	(*GetClientInfoResponse)(nil),               // 19: provider.GetClientInfoResponse
+	(*GetBlockPoolsInfoRequest)(nil),            // 20: provider.GetBlockPoolsInfoRequest
+	(*BlockPoolInfo)(nil),                       // 21: provider.BlockPoolInfo
+	(*GetBlockPoolsInfoResponse)(nil),           // 22: provider.GetBlockPoolsInfoResponse
+	nil,                                         // 23: provider.ExternalResource.LabelsEntry
+	nil,                                         // 24: provider.ExternalResource.AnnotationsEntry
 }
 var file_provider_proto_depIdxs = []int32{
-	18, // 0: provider.ExternalResource.Labels:type_name -> provider.ExternalResource.LabelsEntry
-	19, // 1: provider.ExternalResource.Annotations:type_name -> provider.ExternalResource.AnnotationsEntry
+	23, // 0: provider.ExternalResource.Labels:type_name -> provider.ExternalResource.LabelsEntry
+	24, // 1: provider.ExternalResource.Annotations:type_name -> provider.ExternalResource.AnnotationsEntry
 	4,  // 2: provider.StorageConfigResponse.externalResource:type_name -> provider.ExternalResource
 	0,  // 3: provider.FulfillStorageClaimRequest.storageType:type_name -> provider.FulfillStorageClaimRequest.StorageType
 	4,  // 4: provider.StorageClaimConfigResponse.externalResource:type_name -> provider.ExternalResource
-	1,  // 5: provider.OCSProvider.OnboardConsumer:input_type -> provider.OnboardConsumerRequest
-	3,  // 6: provider.OCSProvider.GetStorageConfig:input_type -> provider.StorageConfigRequest
-	6,  // 7: provider.OCSProvider.OffboardConsumer:input_type -> provider.OffboardConsumerRequest
-	8,  // 8: provider.OCSProvider.AcknowledgeOnboarding:input_type -> provider.AcknowledgeOnboardingRequest
-	10, // 9: provider.OCSProvider.FulfillStorageClaim:input_type -> provider.FulfillStorageClaimRequest
-	12, // 10: provider.OCSProvider.RevokeStorageClaim:input_type -> provider.RevokeStorageClaimRequest
-	14, // 11: provider.OCSProvider.GetStorageClaimConfig:input_type -> provider.StorageClaimConfigRequest
-	16, // 12: provider.OCSProvider.ReportStatus:input_type -> provider.ReportStatusRequest
-	2,  // 13: provider.OCSProvider.OnboardConsumer:output_type -> provider.OnboardConsumerResponse
-	5,  // 14: provider.OCSProvider.GetStorageConfig:output_type -> provider.StorageConfigResponse
-	7,  // 15: provider.OCSProvider.OffboardConsumer:output_type -> provider.OffboardConsumerResponse
-	9,  // 16: provider.OCSProvider.AcknowledgeOnboarding:output_type -> provider.AcknowledgeOnboardingResponse
-	11, // 17: provider.OCSProvider.FulfillStorageClaim:output_type -> provider.FulfillStorageClaimResponse
-	13, // 18: provider.OCSProvider.RevokeStorageClaim:output_type -> provider.RevokeStorageClaimResponse
-	15, // 19: provider.OCSProvider.GetStorageClaimConfig:output_type -> provider.StorageClaimConfigResponse
-	17, // 20: provider.OCSProvider.ReportStatus:output_type -> provider.ReportStatusResponse
-	13, // [13:21] is the sub-list for method output_type
-	5,  // [5:13] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	4,  // 5: provider.BlockPoolInfo.bootstrapSecret:type_name -> provider.ExternalResource
+	21, // 6: provider.GetBlockPoolsInfoResponse.blockPoolInfo:type_name -> provider.BlockPoolInfo
+	1,  // 7: provider.OCSProvider.OnboardConsumer:input_type -> provider.OnboardConsumerRequest
+	3,  // 8: provider.OCSProvider.GetStorageConfig:input_type -> provider.StorageConfigRequest
+	6,  // 9: provider.OCSProvider.OffboardConsumer:input_type -> provider.OffboardConsumerRequest
+	8,  // 10: provider.OCSProvider.AcknowledgeOnboarding:input_type -> provider.AcknowledgeOnboardingRequest
+	10, // 11: provider.OCSProvider.FulfillStorageClaim:input_type -> provider.FulfillStorageClaimRequest
+	12, // 12: provider.OCSProvider.RevokeStorageClaim:input_type -> provider.RevokeStorageClaimRequest
+	14, // 13: provider.OCSProvider.GetStorageClaimConfig:input_type -> provider.StorageClaimConfigRequest
+	16, // 14: provider.OCSProvider.ReportStatus:input_type -> provider.ReportStatusRequest
+	18, // 15: provider.OCSProvider.GetClientInfo:input_type -> provider.GetClientInfoRequest
+	20, // 16: provider.OCSProvider.GetBlockPoolsInfo:input_type -> provider.GetBlockPoolsInfoRequest
+	2,  // 17: provider.OCSProvider.OnboardConsumer:output_type -> provider.OnboardConsumerResponse
+	5,  // 18: provider.OCSProvider.GetStorageConfig:output_type -> provider.StorageConfigResponse
+	7,  // 19: provider.OCSProvider.OffboardConsumer:output_type -> provider.OffboardConsumerResponse
+	9,  // 20: provider.OCSProvider.AcknowledgeOnboarding:output_type -> provider.AcknowledgeOnboardingResponse
+	11, // 21: provider.OCSProvider.FulfillStorageClaim:output_type -> provider.FulfillStorageClaimResponse
+	13, // 22: provider.OCSProvider.RevokeStorageClaim:output_type -> provider.RevokeStorageClaimResponse
+	15, // 23: provider.OCSProvider.GetStorageClaimConfig:output_type -> provider.StorageClaimConfigResponse
+	17, // 24: provider.OCSProvider.ReportStatus:output_type -> provider.ReportStatusResponse
+	19, // 25: provider.OCSProvider.GetClientInfo:output_type -> provider.GetClientInfoResponse
+	22, // 26: provider.OCSProvider.GetBlockPoolsInfo:output_type -> provider.GetBlockPoolsInfoResponse
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_provider_proto_init() }
@@ -1513,6 +1808,66 @@ func file_provider_proto_init() {
 				return nil
 			}
 		}
+		file_provider_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetClientInfoRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_provider_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetClientInfoResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_provider_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetBlockPoolsInfoRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_provider_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*BlockPoolInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_provider_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetBlockPoolsInfoResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1520,7 +1875,7 @@ func file_provider_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_provider_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   19,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

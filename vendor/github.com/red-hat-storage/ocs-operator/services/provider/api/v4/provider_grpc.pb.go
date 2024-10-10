@@ -37,6 +37,8 @@ type OCSProviderClient interface {
 	// specific resources.
 	GetStorageClaimConfig(ctx context.Context, in *StorageClaimConfigRequest, opts ...grpc.CallOption) (*StorageClaimConfigResponse, error)
 	ReportStatus(ctx context.Context, in *ReportStatusRequest, opts ...grpc.CallOption) (*ReportStatusResponse, error)
+	GetClientInfo(ctx context.Context, in *GetClientInfoRequest, opts ...grpc.CallOption) (*GetClientInfoResponse, error)
+	GetBlockPoolsInfo(ctx context.Context, in *GetBlockPoolsInfoRequest, opts ...grpc.CallOption) (*GetBlockPoolsInfoResponse, error)
 }
 
 type oCSProviderClient struct {
@@ -119,6 +121,24 @@ func (c *oCSProviderClient) ReportStatus(ctx context.Context, in *ReportStatusRe
 	return out, nil
 }
 
+func (c *oCSProviderClient) GetClientInfo(ctx context.Context, in *GetClientInfoRequest, opts ...grpc.CallOption) (*GetClientInfoResponse, error) {
+	out := new(GetClientInfoResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/GetClientInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *oCSProviderClient) GetBlockPoolsInfo(ctx context.Context, in *GetBlockPoolsInfoRequest, opts ...grpc.CallOption) (*GetBlockPoolsInfoResponse, error) {
+	out := new(GetBlockPoolsInfoResponse)
+	err := c.cc.Invoke(ctx, "/provider.OCSProvider/GetBlockPoolsInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OCSProviderServer is the server API for OCSProvider service.
 // All implementations must embed UnimplementedOCSProviderServer
 // for forward compatibility
@@ -142,6 +162,8 @@ type OCSProviderServer interface {
 	// specific resources.
 	GetStorageClaimConfig(context.Context, *StorageClaimConfigRequest) (*StorageClaimConfigResponse, error)
 	ReportStatus(context.Context, *ReportStatusRequest) (*ReportStatusResponse, error)
+	GetClientInfo(context.Context, *GetClientInfoRequest) (*GetClientInfoResponse, error)
+	GetBlockPoolsInfo(context.Context, *GetBlockPoolsInfoRequest) (*GetBlockPoolsInfoResponse, error)
 	mustEmbedUnimplementedOCSProviderServer()
 }
 
@@ -172,6 +194,12 @@ func (UnimplementedOCSProviderServer) GetStorageClaimConfig(context.Context, *St
 }
 func (UnimplementedOCSProviderServer) ReportStatus(context.Context, *ReportStatusRequest) (*ReportStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportStatus not implemented")
+}
+func (UnimplementedOCSProviderServer) GetClientInfo(context.Context, *GetClientInfoRequest) (*GetClientInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClientInfo not implemented")
+}
+func (UnimplementedOCSProviderServer) GetBlockPoolsInfo(context.Context, *GetBlockPoolsInfoRequest) (*GetBlockPoolsInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockPoolsInfo not implemented")
 }
 func (UnimplementedOCSProviderServer) mustEmbedUnimplementedOCSProviderServer() {}
 
@@ -330,6 +358,42 @@ func _OCSProvider_ReportStatus_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OCSProvider_GetClientInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetClientInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).GetClientInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/GetClientInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).GetClientInfo(ctx, req.(*GetClientInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OCSProvider_GetBlockPoolsInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBlockPoolsInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OCSProviderServer).GetBlockPoolsInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/provider.OCSProvider/GetBlockPoolsInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OCSProviderServer).GetBlockPoolsInfo(ctx, req.(*GetBlockPoolsInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OCSProvider_ServiceDesc is the grpc.ServiceDesc for OCSProvider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -368,6 +432,14 @@ var OCSProvider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReportStatus",
 			Handler:    _OCSProvider_ReportStatus_Handler,
+		},
+		{
+			MethodName: "GetClientInfo",
+			Handler:    _OCSProvider_GetClientInfo_Handler,
+		},
+		{
+			MethodName: "GetBlockPoolsInfo",
+			Handler:    _OCSProvider_GetBlockPoolsInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
