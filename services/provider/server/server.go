@@ -52,11 +52,12 @@ import (
 )
 
 const (
-	TicketAnnotation          = "ocs.openshift.io/provider-onboarding-ticket"
-	ProviderCertsMountPoint   = "/mnt/cert"
-	onboardingTicketKeySecret = "onboarding-ticket-key"
-	storageRequestNameLabel   = "ocs.openshift.io/storagerequest-name"
-	notAvailable              = "N/A"
+	TicketAnnotation                 = "ocs.openshift.io/provider-onboarding-ticket"
+	ProviderCertsMountPoint          = "/mnt/cert"
+	onboardingTicketKeySecret        = "onboarding-ticket-key"
+	storageRequestNameLabel          = "ocs.openshift.io/storagerequest-name"
+	notAvailable                     = "N/A"
+	rbdMirrorBootstrapPeerSecretName = "rbdMirrorBootstrapPeerSecretName"
 )
 
 const (
@@ -855,6 +856,66 @@ func (s *OCSProviderServer) ReportStatus(ctx context.Context, req *pb.ReportStat
 	}, nil
 }
 
+func (s *OCSProviderServer) GetClientInfo(ctx context.Context, req *pb.GetClientInfoRequest) (*pb.GetClientInfoResponse, error) {
+	_, err := s.getStorageClusterByUID(ctx, req.StorageClusterUID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetClientInfoResponse{}, nil
+}
+
+func (s *OCSProviderServer) GetBlockPoolsInfo(ctx context.Context, req *pb.GetBlockPoolsInfoRequest) (*pb.GetBlockPoolsInfoResponse, error) {
+	_, err := s.getStorageClusterByUID(ctx, req.StorageClusterUID)
+	if err != nil {
+		return nil, err
+	}
+	cephBlockPools := &rookCephv1.CephBlockPoolList{}
+	if err := s.client.List(ctx, cephBlockPools, client.InNamespace(s.namespace)); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to list cephBlockPool resource: %v", err)
+	}
+
+	blockPoolInfo := []*pb.BlockPoolInfo{}
+
+	for i := range cephBlockPools.Items {
+		cephBlockPool := cephBlockPools.Items[i]
+		if !cephBlockPool.Spec.Mirroring.Enabled {
+			return nil, status.Errorf(codes.Internal, "CephBlockPool %q mirroing is disabled", cephBlockPool.Name)
+		}
+
+		val, ok := cephBlockPool.Status.Info[rbdMirrorBootstrapPeerSecretName]
+		if !ok || val == "" {
+			return nil, status.Errorf(codes.Internal, "Bootstrap secret for cephBlockPool %s is not generated", cephBlockPool.Name)
+		}
+		bootstrapSecret := &corev1.Secret{}
+		bootstrapSecret.Name = val
+		bootstrapSecret.Namespace = s.namespace
+		err = s.client.Get(ctx, client.ObjectKeyFromObject(bootstrapSecret), bootstrapSecret)
+		if err != nil {
+			return nil, status.Errorf(
+				codes.Internal,
+				"Error fetching bootstrap secret %s for blockPool %s: %v",
+				bootstrapSecret.Name,
+				cephBlockPool.Name,
+				err,
+			)
+		}
+
+		blockPoolInfo = append(
+			blockPoolInfo,
+			&pb.BlockPoolInfo{
+				BootstrapSecret: &pb.ExternalResource{
+					Kind: "Secret",
+					Name: cephBlockPool.Name,
+					Data: mustMarshal(bootstrapSecret.Data),
+				},
+			},
+		)
+	}
+
+	return &pb.GetBlockPoolsInfoResponse{BlockPoolInfo: blockPoolInfo}, nil
+}
+
 func getDesiredClientConfigHash(channelName string, storageConsumer *ocsv1alpha1.StorageConsumer) string {
 	var arr = []any{
 		channelName,
@@ -876,6 +937,18 @@ func (s *OCSProviderServer) getOCSSubscriptionChannel(ctx context.Context) (stri
 		return "", fmt.Errorf("unable to find ocs-operator subscription")
 	}
 	return subscription.Spec.Channel, nil
+}
+
+func (s *OCSProviderServer) getStorageClusterByUID(ctx context.Context, storageClusterUID string) (*ocsv1.StorageCluster, error) {
+	storageClusterList := &ocsv1.StorageClusterList{}
+	err := s.client.List(ctx, storageClusterList, client.InNamespace(s.namespace))
+	if err != nil {
+		return nil, err
+	}
+	if len(storageClusterList.Items) != 1 && string(storageClusterList.Items[0].UID) != storageClusterUID {
+		return nil, status.Errorf(codes.Internal, "Failed to find storage cluster by UID %q", storageClusterUID)
+	}
+	return &storageClusterList.Items[0], nil
 }
 
 func extractMonitorIps(data string) ([]string, error) {

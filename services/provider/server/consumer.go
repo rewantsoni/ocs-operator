@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	controllers "github.com/red-hat-storage/ocs-operator/v4/controllers/storageconsumer"
 	"sync"
 
 	ocsv1alpha1 "github.com/red-hat-storage/ocs-operator/api/v4/v1alpha1"
@@ -226,4 +227,18 @@ func (c *ocsConsumerManager) UpdateConsumerStatus(ctx context.Context, id string
 	}
 	klog.Infof("successfully updated Status for StorageConsumer %v", consumerObj.Name)
 	return nil
+}
+
+func (c *ocsConsumerManager) GetStorageRequestsByConsumerUID(ctx context.Context, consumerUUID string) (*ocsv1alpha1.StorageRequestList, error) {
+	_, err := c.Get(ctx, consumerUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	storageRequestList := &ocsv1alpha1.StorageRequestList{}
+	err = c.client.List(ctx, storageRequestList, client.InNamespace(c.namespace), client.MatchingLabels{controllers.ConsumerUUIDLabel: consumerUUID})
+	if err != nil {
+		return nil, err
+	}
+	return storageRequestList, nil
 }
