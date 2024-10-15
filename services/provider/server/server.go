@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	csiopv1a1 "github.com/ceph/ceph-csi-operator/api/v1alpha1"
+	ramenv1alpha1 "github.com/ramendr/ramen/api/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -66,10 +67,11 @@ const (
 
 type OCSProviderServer struct {
 	pb.UnimplementedOCSProviderServer
-	client                client.Client
-	consumerManager       *ocsConsumerManager
-	storageRequestManager *storageRequestManager
-	namespace             string
+	client                 client.Client
+	consumerManager        *ocsConsumerManager
+	storageRequestManager  *storageRequestManager
+	maintenanceModeManager *maintenanceModeManager
+	namespace              string
 }
 
 func NewOCSProviderServer(ctx context.Context, namespace string) (*OCSProviderServer, error) {
@@ -88,11 +90,17 @@ func NewOCSProviderServer(ctx context.Context, namespace string) (*OCSProviderSe
 		return nil, fmt.Errorf("failed to create new StorageRequest instance. %v", err)
 	}
 
+	maintenanceModeManager, err := newMaintenanceModeManager(client, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new MaintenanceMode instance. %v", err)
+	}
+
 	return &OCSProviderServer{
-		client:                client,
-		consumerManager:       consumerManager,
-		storageRequestManager: storageRequestManager,
-		namespace:             namespace,
+		client:                 client,
+		consumerManager:        consumerManager,
+		storageRequestManager:  storageRequestManager,
+		maintenanceModeManager: maintenanceModeManager,
+		namespace:              namespace,
 	}, nil
 }
 
@@ -891,4 +899,54 @@ func extractMonitorIps(data string) ([]string, error) {
 	// sorting here removes any positional change which reduces spurious reconciles
 	slices.Sort(ips)
 	return ips, nil
+}
+
+func (s *OCSProviderServer) StartMaintenanceMode(ctx context.Context, req *pb.StartMaintenanceModeRequest) (*pb.StartMaintenanceModeResponse, error) {
+	// Get storage consumer resource using UUID
+	_, err := s.consumerManager.Get(ctx, req.StorageConsumerUUID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	obj := req.ExternalResource
+
+	mmModeSpec := &ramenv1alpha1.MaintenanceModeSpec{}
+	err = json.Unmarshal(req.ExternalResource.Data, mmModeSpec)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	if err = s.maintenanceModeManager.Create(ctx, obj.Name, mmModeSpec); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return &pb.StartMaintenanceModeResponse{}, nil
+}
+
+func (s *OCSProviderServer) StopMaintenanceMode(ctx context.Context, req *pb.StopMaintenanceModeRequest) (*pb.StopMaintenanceModeResponse, error) {
+	// Get storage consumer resource using UUID
+	_, err := s.consumerManager.Get(ctx, req.StorageConsumerUUID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	if err := s.maintenanceModeManager.Delete(ctx, req.MaintenanceModeName); err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.StopMaintenanceModeResponse{}, nil
+}
+
+func (s *OCSProviderServer) GetMaintenanceModeStatus(ctx context.Context, req *pb.GetMaintenanceModeStatusRequest) (*pb.GetMaintenanceModeStatusResponse, error) {
+	// Get storage consumer resource using UUID
+	_, err := s.consumerManager.Get(ctx, req.StorageConsumerUUID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	maintenanceMode, err := s.maintenanceModeManager.Get(ctx, req.MaintenanceModeName)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.GetMaintenanceModeStatusResponse{MaintenanceModeStatus: mustMarshal(maintenanceMode.Status)}, nil
 }

@@ -31,6 +31,7 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.28.1-0.20240827180342-c730fbc779a8
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.0
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.76.0
+	github.com/ramendr/ramen/api v0.0.0-20241014164256-3929be6ce297
 	github.com/red-hat-storage/ocs-client-operator v0.0.0-20240731100835-31192d2c370e
 	github.com/red-hat-storage/ocs-operator/api/v4 v4.0.0-20240731064750-930a78b89d84
 	github.com/red-hat-storage/ocs-operator/services/provider/api/v4 v4.0.0-00010101000000-000000000000
