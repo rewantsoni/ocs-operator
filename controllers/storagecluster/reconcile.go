@@ -76,8 +76,8 @@ const (
 	EBS StorageClassProvisionerType = "kubernetes.io/aws-ebs"
 
 	VirtualMachineCrdName = "virtualmachines.kubevirt.io"
-
-	StorageClientCrdName = "storageclients.ocs.openshift.io"
+	ServiceExportCrdName  = "serviceexports.multicluster.x-k8s.io"
+	StorageClientCrdName  = "storageclients.ocs.openshift.io"
 )
 
 var storageClusterFinalizer = "storagecluster.ocs.openshift.io"
@@ -151,7 +151,7 @@ func (r *StorageClusterReconciler) Reconcile(ctx context.Context, request reconc
 	r.Log = r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	r.ctx = ctrllog.IntoContext(ctx, r.Log)
 
-	for _, crdName := range []string{VirtualMachineCrdName, StorageClientCrdName} {
+	for _, crdName := range []string{VirtualMachineCrdName, StorageClientCrdName, ServiceExportCrdName} {
 		crd := &metav1.PartialObjectMetadata{}
 		crd.SetGroupVersionKind(extv1.SchemeGroupVersion.WithKind("CustomResourceDefinition"))
 		crd.Name = crdName

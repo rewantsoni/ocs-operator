@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	mcsv1a1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
 	"github.com/red-hat-storage/ocs-operator/v4/controllers/defaults"
@@ -44,6 +45,12 @@ func (o *ocsProviderServer) ensureCreated(r *StorageClusterReconciler, instance 
 
 	if res, err := o.createService(r, instance); err != nil || !res.IsZero() {
 		return res, err
+	}
+
+	if r.AvailableCrds[ServiceExportCrdName] {
+		if res, err := o.createServiceExport(r, instance); err != nil || !res.IsZero() {
+			return res, err
+		}
 	}
 
 	if res, err := o.createDeployment(r, instance); err != nil || !res.IsZero() {
@@ -211,6 +218,26 @@ func (o *ocsProviderServer) createService(r *StorageClusterReconciler, instance 
 	}
 
 	r.Log.Info("status.storageProviderEndpoint is updated", "Endpoint", instance.Status.StorageProviderEndpoint)
+
+	return reconcile.Result{}, nil
+}
+
+func (o *ocsProviderServer) createServiceExport(r *StorageClusterReconciler, instance *ocsv1.StorageCluster) (reconcile.Result, error) {
+
+	serviceExport := &mcsv1a1.ServiceExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ocsProviderServerName,
+			Namespace: instance.Namespace,
+		},
+	}
+
+	_, err := controllerutil.CreateOrUpdate(r.ctx, r.Client, serviceExport, func() error {
+		return controllerutil.SetOwnerReference(instance, serviceExport, r.Client.Scheme())
+	})
+	if err != nil {
+		r.Log.Error(err, "Failed to create/update service export", "ServiceExport", ocsProviderServerName)
+		return reconcile.Result{}, err
+	}
 
 	return reconcile.Result{}, nil
 }
