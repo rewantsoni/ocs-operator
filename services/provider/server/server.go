@@ -353,6 +353,68 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		Data: mustMarshal(&csiopv1a1.CephConnectionSpec{Monitors: monIps}),
 	})
 
+	consumerConfigMap := &v1.ConfigMap{}
+	if consumerResource.Status.ResourceNameMappingConfigMap.Name == "" {
+		return nil, fmt.Errorf("waiting for ResourceNameMappingConfig to be generated")
+	}
+	consumerConfigMap.Name = consumerResource.Status.ResourceNameMappingConfigMap.Name
+	consumerConfigMap.Namespace = consumerResource.Namespace
+	err = s.client.Get(ctx, client.ObjectKeyFromObject(consumerConfigMap), consumerConfigMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %s configMap. %v", consumerConfigMap.Name, err)
+	}
+
+	if consumerConfigMap.Data == nil {
+		return nil, fmt.Errorf("waiting StorageConsumer ResourceNameMappingConfig to be generated")
+	}
+
+	consumerConfig := util.WrapStorageConsumerResourceMap(consumerConfigMap.Data)
+
+	// ClientProfile
+	storageCluster, err := util.GetStorageClusterInNamespace(ctx, s.client, s.namespace)
+	if err != nil {
+		return nil, err
+	}
+	var kernelMountOptions map[string]string
+	for _, option := range strings.Split(util.GetCephFSKernelMountOptions(storageCluster), ",") {
+		if kernelMountOptions == nil {
+			kernelMountOptions = map[string]string{}
+		}
+		parts := strings.Split(option, "=")
+		kernelMountOptions[parts[0]] = parts[1]
+	}
+
+	profileMap := make(map[string]*csiopv1a1.ClientProfileSpec)
+
+	rbdClientProfileName := consumerConfig.GetRbdClientProfileName()
+	cephFsClientProfileName := consumerConfig.GetCephFsClientProfileName()
+
+	if _, exists := profileMap[rbdClientProfileName]; !exists {
+		profileMap[rbdClientProfileName] = &csiopv1a1.ClientProfileSpec{}
+	}
+	profileMap[rbdClientProfileName].Rbd = &csiopv1a1.RbdConfigSpec{
+		RadosNamespace: consumerConfig.GetRbdRadosNamespaceName(),
+	}
+	profileMap[rbdClientProfileName].CephConnectionRef = corev1.LocalObjectReference{Name: consumerResource.Status.Client.Name}
+
+	if _, exists := profileMap[cephFsClientProfileName]; !exists {
+		profileMap[cephFsClientProfileName] = &csiopv1a1.ClientProfileSpec{}
+	}
+	profileMap[cephFsClientProfileName].CephFs = &csiopv1a1.CephFsConfigSpec{
+		SubVolumeGroup:     consumerConfig.GetSubVolumeGroupName(),
+		KernelMountOptions: kernelMountOptions,
+		RadosNamespace:     ptr.To(consumerConfig.GetSubVolumeGroupRadosNamespaceName()),
+	}
+	profileMap[cephFsClientProfileName].CephConnectionRef = corev1.LocalObjectReference{Name: consumerResource.Status.Client.Name}
+
+	for profileName, profileSpec := range profileMap {
+		extR = append(extR, &pb.ExternalResource{
+			Kind: "ClientProfile",
+			Name: profileName,
+			Data: mustMarshal(profileSpec),
+		})
+	}
+
 	if consumerResource.Spec.StorageQuotaInGiB > 0 {
 		clusterResourceQuotaSpec := &quotav1.ClusterResourceQuotaSpec{
 			Selector: quotav1.ClusterResourceQuotaSelector{
