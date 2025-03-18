@@ -254,7 +254,7 @@ func newCephFilesystemStorageClassConfiguration(initData *ocsv1.StorageCluster) 
 	return StorageClassConfiguration{
 		storageClass: &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: generateNameForCephFilesystemSC(initData),
+				Name: util.GenerateNameForCephFilesystemSC(initData),
 				Annotations: map[string]string{
 					"description": "Provides RWO and RWX Filesystem volumes",
 				},
@@ -287,7 +287,7 @@ func newCephBlockPoolStorageClassConfiguration(initData *ocsv1.StorageCluster) S
 	scc := StorageClassConfiguration{
 		storageClass: &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: generateNameForCephBlockPoolSC(initData),
+				Name: util.GenerateNameForCephBlockPoolSC(initData),
 				Annotations: map[string]string{
 					"description": "Provides RWO Filesystem volumes, and RWO and RWX Block volumes",
 					"reclaimspace.csiaddons.openshift.io/schedule": "@weekly",
@@ -299,7 +299,7 @@ func newCephBlockPoolStorageClassConfiguration(initData *ocsv1.StorageCluster) S
 			AllowVolumeExpansion: &allowVolumeExpansion,
 			Parameters: map[string]string{
 				"clusterID":                 initData.Namespace,
-				"pool":                      generateNameForCephBlockPool(initData),
+				"pool":                      util.GenerateNameForCephBlockPool(initData.Name),
 				"imageFeatures":             "layering,deep-flatten,exclusive-lock,object-map,fast-diff",
 				"csi.storage.k8s.io/fstype": "ext4",
 				"imageFormat":               "2",
@@ -344,7 +344,7 @@ func newNonResilientCephBlockPoolStorageClassConfiguration(initData *ocsv1.Stora
 			AllowVolumeExpansion: &allowVolumeExpansion,
 			Parameters: map[string]string{
 				"clusterID":                 initData.Namespace,
-				"topologyConstrainedPools":  getTopologyConstrainedPools(initData),
+				"topologyConstrainedPools":  util.GetTopologyConstrainedPools(initData),
 				"imageFeatures":             "layering,deep-flatten,exclusive-lock,object-map,fast-diff",
 				"csi.storage.k8s.io/fstype": "ext4",
 				"imageFormat":               "2",
@@ -382,7 +382,7 @@ func newCephNFSStorageClassConfiguration(initData *ocsv1.StorageCluster) Storage
 			Parameters: map[string]string{
 				"clusterID":        initData.Namespace,
 				"nfsCluster":       generateNameForCephNFS(initData),
-				"fsName":           generateNameForCephFilesystem(initData),
+				"fsName":           util.GenerateNameForCephFilesystem(initData.Name),
 				"server":           generateNameForNFSService(initData),
 				"volumeNamePrefix": "nfs-export-",
 				"csi.storage.k8s.io/provisioner-secret-name":            "rook-csi-cephfs-provisioner",
@@ -468,44 +468,6 @@ func (r *StorageClusterReconciler) newStorageClassConfigurations(initData *ocsv1
 	}
 
 	return ret, nil
-}
-
-func getTopologyConstrainedPools(initData *ocsv1.StorageCluster) string {
-	type topologySegment struct {
-		DomainLabel string `json:"domainLabel"`
-		DomainValue string `json:"value"`
-	}
-	// TopologyConstrainedPool stores the pool name and a list of its associated topology domain values.
-	type topologyConstrainedPool struct {
-		PoolName       string            `json:"poolName"`
-		DomainSegments []topologySegment `json:"domainSegments"`
-	}
-
-	var topologyConstrainedPools []topologyConstrainedPool
-	for _, failureDomainValue := range initData.Status.FailureDomainValues {
-		failureDomain := initData.Status.FailureDomain
-		// Normally the label on the nodes is of the form kubernetes.io/hostname=<hostname>
-		// and the same is passed to ceph-csi through rook-ceph-opeartor-config cm.
-		// Hence, the ceph-non-resilient-rbd storageclass needs to have domainLabel set as hostname for topology constrained pools.
-		if failureDomain == "host" {
-			failureDomain = "hostname"
-		}
-		topologyConstrainedPools = append(topologyConstrainedPools, topologyConstrainedPool{
-			PoolName: generateNameForNonResilientCephBlockPool(initData, failureDomainValue),
-			DomainSegments: []topologySegment{
-				{
-					DomainLabel: failureDomain,
-					DomainValue: failureDomainValue,
-				},
-			},
-		})
-	}
-	// returning as string as parameters are of type map[string]string
-	topologyConstrainedPoolsStr, err := json.MarshalIndent(topologyConstrainedPools, "", "  ")
-	if err != nil {
-		return ""
-	}
-	return string(topologyConstrainedPoolsStr)
 }
 
 // getTopologyConstrainedPoolsExternalMode constructs the topologyConstrainedPools string for external mode from the data map

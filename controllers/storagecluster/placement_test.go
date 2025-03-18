@@ -1,6 +1,7 @@
 package storagecluster
 
 import (
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	"testing"
 
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
@@ -501,7 +502,7 @@ func TestGetPlacement(t *testing.T) {
 		expectedPlacement = c.expectedPlacements["mds"]
 		testPodAffinity := &corev1.PodAntiAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-				defaults.GetMdsWeightedPodAffinityTerm(100, generateNameForCephFilesystem(sc)).PodAffinityTerm,
+				defaults.GetMdsWeightedPodAffinityTerm(100, util.GenerateNameForCephFilesystem(sc.Name)).PodAffinityTerm,
 			},
 		}
 		if expectedPlacement.PodAntiAffinity != nil {

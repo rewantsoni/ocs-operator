@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	"math/rand"
 	"net"
 	"strconv"
@@ -538,7 +539,7 @@ func TestErasureCodedExternalResources(t *testing.T) {
 			Name: "ceph-rbd",
 			Kind: "StorageClass",
 			Data: map[string]string{
-				"pool": generateNameForCephBlockPool(cr),
+				"pool": util.GenerateNameForCephBlockPool(cr.Name),
 			},
 		},
 		{

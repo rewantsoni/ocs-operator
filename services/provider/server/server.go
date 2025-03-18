@@ -415,6 +415,31 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		})
 	}
 
+	var fsid string
+	if cephCluster, err := util.GetCephClusterInNamespace(ctx, s.client, s.namespace); err != nil {
+		return nil, err
+	} else if cephCluster.Status.CephStatus == nil || cephCluster.Status.CephStatus.FSID == "" {
+		return nil, fmt.Errorf("waiting for Ceph FSID")
+	} else {
+		fsid = cephCluster.Status.CephStatus.FSID
+	}
+
+	scTemplates := getStorageClassTemplates(
+		storageCluster,
+		consumerConfig,
+		fsid,
+		consumerResource.Status.Client.OperatorNamespace,
+	)
+
+	for i := 0; i < len(consumerResource.Spec.StorageClasses); i++ {
+		storageClassName := consumerResource.Spec.StorageClasses[i].Name
+
+		if scTemplates[storageClassName] != nil {
+			extR = append(extR, scTemplates[storageClassName])
+		}
+		//TODO: Day-2 storageClasses
+	}
+
 	if consumerResource.Spec.StorageQuotaInGiB > 0 {
 		clusterResourceQuotaSpec := &quotav1.ClusterResourceQuotaSpec{
 			Selector: quotav1.ClusterResourceQuotaSelector{

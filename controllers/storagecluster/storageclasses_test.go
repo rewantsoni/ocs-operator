@@ -2,6 +2,7 @@ package storagecluster
 
 import (
 	"context"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	"testing"
 
 	api "github.com/red-hat-storage/ocs-operator/api/v4/v1"
@@ -163,12 +164,12 @@ func testStorageClasses(t *testing.T, pvEncryption bool, customSpec *api.Storage
 
 func assertStorageClasses(t *testing.T, reconciler StorageClusterReconciler, cr *api.StorageCluster, request reconcile.Request) {
 	pvEncryption := cr.Spec.Encryption.StorageClass && cr.Spec.Encryption.KeyManagementService.Enable
-	scNameCephfs := generateNameForCephFilesystemSC(cr)
+	scNameCephfs := util.GenerateNameForCephFilesystemSC(cr)
 	scNameNfs := generateNameForCephNetworkFilesystemSC(cr)
-	scNameRbd := generateNameForCephBlockPoolSC(cr)
+	scNameRbd := util.GenerateNameForCephBlockPoolSC(cr)
 	scNameEncryptedRbd := generateNameForEncryptedCephBlockPoolSC(cr)
 	scNameRgw := generateNameForCephRgwSC(cr)
-	scNameVirt := generateNameForCephBlockPoolVirtualizationSC(cr)
+	scNameVirt := util.GenerateNameForCephBlockPoolVirtualizationSC(cr)
 
 	actual := map[string]*storagev1.StorageClass{
 		scNameCephfs:       {},
