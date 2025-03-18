@@ -95,30 +95,18 @@ func generateNameForCephNetworkFilesystemSC(initData *ocsv1.StorageCluster) stri
 	return fmt.Sprintf("%s-ceph-nfs", initData.Name)
 }
 
-// generateNameForSnapshotClass function generates 'SnapshotClass' name.
-// 'snapshotType' can be: 'rbdSnapshotter' or 'cephfsSnapshotter' or 'nfsSnapshotter'
-func generateNameForSnapshotClass(initData *ocsv1.StorageCluster, snapshotType SnapshotterType) string {
-	return fmt.Sprintf("%s-%splugin-snapclass", initData.Name, snapshotType)
-}
-
-func generateNameForGroupSnapshotClass(initData *ocsv1.StorageCluster, groupSnapshotType groupSnapshotterType) string {
-	if groupSnapshotType == rbdGroupSnapshotter {
-		return fmt.Sprintf("%s-ceph-%s-groupsnapclass", initData.Name, groupSnapshotType)
-	}
-	return fmt.Sprintf("%s-%s-groupsnapclass", initData.Name, groupSnapshotType)
-}
-
-func generateNameForSnapshotClassDriver(snapshotType SnapshotterType) string {
+func generateNameForSnapshotClassDriver(snapshotType util.SnapshotterType) string {
 	return fmt.Sprintf("%s.%s.csi.ceph.com", util.StorageClassDriverNamePrefix, snapshotType)
 }
 
-func setParameterBasedOnSnapshotterType(instance *ocsv1.StorageCluster, groupSnapshotType groupSnapshotterType) (string, string) {
-	if groupSnapshotType == rbdGroupSnapshotter {
+func setParameterBasedOnSnapshotterType(instance *ocsv1.StorageCluster, groupSnapshotType util.GroupSnapshotterType) (string, string) {
+	if groupSnapshotType == util.RbdGroupSnapshotter {
 		return "pool", util.GenerateNameForCephBlockPool(instance.Name)
 	}
 	return "fsName", util.GenerateNameForCephFilesystem(instance.Name)
 }
-func generateNameForSnapshotClassSecret(instance *ocsv1.StorageCluster, snapshotType SnapshotterType) string {
+
+func generateNameForSnapshotClassSecret(instance *ocsv1.StorageCluster, snapshotType util.SnapshotterType) string {
 	// nfs uses the same cephfs secrets
 	if snapshotType == "nfs" {
 		snapshotType = "cephfs"

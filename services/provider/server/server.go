@@ -440,6 +440,38 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		//TODO: Day-2 storageClasses
 	}
 
+	vscTempates := getVolumeSnapshotClassTemplates(
+		storageCluster,
+		consumerConfig,
+		fsid,
+		consumerResource.Status.Client.OperatorNamespace,
+	)
+
+	for i := 0; i < len(consumerResource.Spec.VolumeSnapshotClasses); i++ {
+		snapshotClassName := consumerResource.Spec.VolumeSnapshotClasses[i].Name
+
+		if vscTempates[snapshotClassName] != nil {
+			extR = append(extR, vscTempates[snapshotClassName])
+		}
+		//TODO: Day-2 snapshotclass and nfsSnapshot
+	}
+
+	vgscTempates := getVolumeGroupSnapshotClassTemplates(
+		storageCluster,
+		consumerConfig,
+		fsid,
+		consumerResource.Status.Client.OperatorNamespace,
+	)
+
+	for i := 0; i < len(consumerResource.Spec.VolumeGroupSnapshotClasses); i++ {
+		groupSnapshotClassName := consumerResource.Spec.VolumeGroupSnapshotClasses[i].Name
+
+		if vgscTempates[groupSnapshotClassName] != nil {
+			extR = append(extR, vscTempates[groupSnapshotClassName])
+		}
+		//TODO: Day-2 groupSnapshotclass and nfsSnapshot
+	}
+
 	if consumerResource.Spec.StorageQuotaInGiB > 0 {
 		clusterResourceQuotaSpec := &quotav1.ClusterResourceQuotaSpec{
 			Selector: quotav1.ClusterResourceQuotaSelector{

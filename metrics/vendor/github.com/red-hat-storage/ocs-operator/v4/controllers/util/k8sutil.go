@@ -67,6 +67,22 @@ const (
 	StorageClientMappingConfigName       = "storage-client-mapping"
 )
 
+// SnapshotterType represents a snapshotter type
+type SnapshotterType string
+
+const (
+	RbdSnapshotter    SnapshotterType = "rbd"
+	CephfsSnapshotter SnapshotterType = "cephfs"
+	NfsSnapshotter    SnapshotterType = "nfs"
+)
+
+type GroupSnapshotterType string
+
+const (
+	RbdGroupSnapshotter    GroupSnapshotterType = "rbd"
+	CephfsGroupSnapshotter GroupSnapshotterType = "cephfs"
+)
+
 var podNamespace = os.Getenv(PodNamespaceEnvVar)
 
 // GetPodNamespace returns the namespace where the pod is deployed
@@ -258,8 +274,17 @@ func GenerateNameForCephFilesystem(storageClusterName string) string {
 	return fmt.Sprintf("%s-cephfilesystem", storageClusterName)
 }
 
-func GenerateNameForCephFilesystem(storageClusterName string) string {
-	return fmt.Sprintf("%s-cephfilesystem", storageClusterName)
+// GenerateNameForSnapshotClass function generates 'SnapshotClass' name.
+// 'snapshotType' can be: 'RbdSnapshotter' or 'CephfsSnapshotter' or 'NfsSnapshotter'
+func GenerateNameForSnapshotClass(initData *ocsv1.StorageCluster, snapshotType SnapshotterType) string {
+	return fmt.Sprintf("%s-%splugin-snapclass", initData.Name, snapshotType)
+}
+
+func GenerateNameForGroupSnapshotClass(initData *ocsv1.StorageCluster, groupSnapshotType GroupSnapshotterType) string {
+	if groupSnapshotType == RbdGroupSnapshotter {
+		return fmt.Sprintf("%s-ceph-%s-groupsnapclass", initData.Name, groupSnapshotType)
+	}
+	return fmt.Sprintf("%s-%s-groupsnapclass", initData.Name, groupSnapshotType)
 }
 
 func GetStorageClusterInNamespace(ctx context.Context, cl client.Client, namespace string) (*ocsv1.StorageCluster, error) {
