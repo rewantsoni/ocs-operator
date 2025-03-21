@@ -38,6 +38,7 @@ import (
 	nbv1 "github.com/noobaa/noobaa-operator/v5/pkg/apis/noobaa/v1alpha1"
 	quotav1 "github.com/openshift/api/quota/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	templatev1 "github.com/openshift/api/template/v1"
 	opv1a1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	rookCephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	"google.golang.org/grpc"
@@ -617,6 +618,68 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 					Parameters:     parameters,
 					DeletionPolicy: snapapi.VolumeSnapshotContentDelete,
 				}),
+			},
+		)
+	}
+
+	//TODO: add the value
+	peerStorageID := ""
+	replicationID := ""
+	if peerStorageID != "" {
+		storageIDs := []string{rbdStorageID, peerStorageID}
+		slices.Sort(storageIDs)
+		replicationID = util.CalculateMD5Hash(storageIDs)
+	}
+
+	for i := 0; i < len(consumerResource.Spec.VolumeReplicationClasses); i++ {
+		replicationClassName := consumerResource.Spec.VolumeReplicationClasses[i].Name
+
+		vrcTemplate := &templatev1.Template{}
+		vrcTemplate.Name = replicationClassName
+		vrcTemplate.Namespace = consumerResource.Namespace
+
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(vrcTemplate), vrcTemplate); err != nil {
+			klog.Errorf("Failed to get Volume Replication Class template %s: %v", replicationClassName, err)
+			continue
+		}
+
+		if len(vrcTemplate.Objects) != 1 {
+			klog.Errorf(
+				"Invalid number of Volume Replication Class found inside the template %s, expected 1 got %v",
+				replicationClassName,
+				len(vrcTemplate.Objects),
+			)
+			continue
+		}
+
+		vrcRaw := vrcTemplate.Objects[0].Raw
+		vrc := replicationv1alpha1.VolumeReplicationClass{}
+		err := json.Unmarshal(vrcRaw, &vrc)
+		if err != nil {
+			klog.Errorf("Failed to unmarshal Volume Replication Class %s: %v", vrcRaw, err)
+			continue
+		}
+
+		switch vrc.Spec.Provisioner {
+		case util.RbdDriverName:
+			vrc.Spec.Parameters["replication.storage.openshift.io/replication-secret-name"] = rbdProvisionerSecretName
+			vrc.Spec.Parameters["clusterID"] = rbdClientProfileName
+			vrc.Labels[ramenDRStorageIDLabelKey] = rbdStorageID
+			if replicationID != "" {
+				vrc.Labels[ramenDRReplicationIDLabelKey] = replicationID
+			}
+			vrc.Labels[ramenMaintenanceModeLabelKey] = "Failover"
+		default:
+			klog.Errorf("Volume Replication Class for %v provision is unimplemented", vrc.Spec.Provisioner)
+		}
+
+		extR = append(extR,
+			&pb.ExternalResource{
+				Name:        replicationClassName,
+				Kind:        "VolumeReplicationClass",
+				Labels:      vrc.Labels,
+				Annotations: vrc.Annotations,
+				Data:        mustMarshal(vrc.Spec),
 			},
 		)
 	}
