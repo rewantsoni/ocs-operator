@@ -65,6 +65,7 @@ const (
 	CephRBDMirrorName                    = "cephrbdmirror"
 	OcsClientTimeout                     = 10 * time.Second
 	StorageClientMappingConfigName       = "storage-client-mapping"
+	PeerRBDStorageID                     = "ocs.openshift.io/peer-rbd-storage-id"
 )
 
 var podNamespace = os.Getenv(PodNamespaceEnvVar)

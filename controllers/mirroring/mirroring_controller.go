@@ -52,6 +52,11 @@ const (
 	storageClusterPeerAnnotationKey = "ocs.openshift.io/storage-cluster-peer"
 )
 
+type peerClientInfo struct {
+	radosNamespace string
+	rbdStorageID   string
+}
+
 // MirroringReconciler reconciles a Mirroring fields for Ceph Object(s)
 // nolint:revive
 type MirroringReconciler struct {
@@ -514,10 +519,13 @@ func (r *MirroringReconciler) reconcileRadosNamespaceMirroring(
 			errorOccurred = true
 		}
 
-		remoteNamespaceByClientID := map[string]string{}
+		remoteInfoByClientID := map[string]peerClientInfo{}
 		for i := range response.ClientsInfo {
 			clientInfo := response.ClientsInfo[i]
-			remoteNamespaceByClientID[clientInfo.ClientID] = clientInfo.RadosNamespace
+			remoteInfoByClientID[clientInfo.ClientID] = peerClientInfo{
+				radosNamespace: clientInfo.RadosNamespace,
+				rbdStorageID:   clientInfo.RbdStorageID,
+			}
 		}
 
 		radosNamespaceList := &rookCephv1.CephBlockPoolRadosNamespaceList{}
@@ -532,8 +540,19 @@ func (r *MirroringReconciler) reconcileRadosNamespaceMirroring(
 			if consumer == nil || consumer.Status.Client.ID == "" {
 				continue
 			}
+			if util.AddAnnotation(consumer, util.PeerRBDStorageID, radosNamespaceList.Items[i].Name) {
+				if err := r.update(consumer); err != nil {
+					r.log.Error(
+						err,
+						"failed to update StorageConsumer with peer RBDStorageID",
+						"StorageConsumer",
+						consumer,
+					)
+					errorOccurred = true
+				}
+			}
 			remoteClientID := clientMappingConfig.Data[consumer.Status.Client.ID]
-			remoteNamespace := remoteNamespaceByClientID[remoteClientID]
+			remoteNamespace := remoteInfoByClientID[remoteClientID].radosNamespace
 			_, err = controllerutil.CreateOrUpdate(r.ctx, r.Client, rns, func() error {
 				if remoteNamespace != "" && shouldMirror {
 					rns.Spec.Mirroring = &rookCephv1.RadosNamespaceMirroring{
