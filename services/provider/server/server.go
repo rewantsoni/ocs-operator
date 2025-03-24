@@ -1244,10 +1244,25 @@ func (s *OCSProviderServer) GetStorageClientsInfo(ctx context.Context, req *pb.S
 			klog.Error(err)
 			continue
 		}
+		cephCluster, err := util.GetCephClusterInNamespace(ctx, s.client, s.namespace)
+		if err != nil {
+			response.Errors = append(response.Errors,
+				&pb.StorageClientInfoError{
+					ClientID: req.ClientIDs[i],
+					Code:     pb.ErrorCode_Internal,
+					Message:  "failed loading client information",
+				},
+			)
+			klog.Error(err)
+			continue
+		}
+
 		clientInfo := &pb.ClientInfo{ClientID: req.ClientIDs[i]}
 
 		if radosNamespace := consumerConfigMap.Data["rados-namespace-name"]; radosNamespace != "" {
+			rbdStorageID := calculateCephRbdStorageID(cephCluster.Status.CephStatus.FSID, radosNamespace)
 			clientInfo.RadosNamespace = radosNamespace
+			clientInfo.RbdStorageID = rbdStorageID
 		}
 
 		response.ClientsInfo = append(response.ClientsInfo, clientInfo)
