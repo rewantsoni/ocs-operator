@@ -415,6 +415,44 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		})
 	}
 
+	//TODO: skip for internal storageConsumer
+	//CephClients
+	cephClients := []string{
+		consumerConfig.GetCsiRbdProvisionerSecretName(),
+		consumerConfig.GetCsiRbdNodeSecretName(),
+		consumerConfig.GetCsiCephFsProvisionerSecretName(),
+		consumerConfig.GetCsiCephFsNodeSecretName(),
+	}
+
+	for i := range cephClients {
+		cephClient := &rookCephv1.CephClient{}
+		cephClient.Name = cephClients[i]
+		cephClient.Namespace = consumerResource.Namespace
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(cephClient), cephClient); err != nil {
+			return nil, err
+		}
+
+		cephUserSecret := &v1.Secret{}
+		cephUserSecret.Namespace = consumerResource.Namespace
+		if cephClient.Status != nil &&
+			cephClient.Status.Info["secretName"] != "" {
+			cephUserSecret.Name = cephClient.Status.Info["secretName"]
+		}
+		if cephUserSecret.Name == "" {
+			return nil, status.Errorf(codes.Internal, "failed to find cephclient secret name")
+		}
+
+		if err = s.client.Get(ctx, client.ObjectKeyFromObject(cephUserSecret), cephUserSecret); err != nil {
+			return nil, fmt.Errorf("failed to get %s secret. %v", cephUserSecret, err)
+		}
+
+		extR = append(extR, &pb.ExternalResource{
+			Name: cephUserSecret.Name,
+			Kind: "Secret",
+			Data: mustMarshal(cephUserSecret.Data),
+		})
+	}
+
 	var fsid string
 	if cephCluster, err := util.GetCephClusterInNamespace(ctx, s.client, s.namespace); err != nil {
 		return nil, err
