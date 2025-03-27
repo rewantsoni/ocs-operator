@@ -2,6 +2,7 @@ package storagecluster
 
 import (
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
 	ocsv1a1 "github.com/red-hat-storage/ocs-operator/api/v4/v1alpha1"
@@ -31,16 +32,16 @@ func (s *storageConsumer) ensureCreated(r *StorageClusterReconciler, storageClus
 		spec.ResourceNameMappingConfigMap.Name = localStorageConsumerConfigMapName
 		spec.StorageClasses = []ocsv1a1.StorageClassSpec{
 			// TODO: after finding virt availability need to send corresponding sc
-			{Name: generateNameForCephBlockPoolSC(storageCluster)},
-			{Name: generateNameForCephFilesystemSC(storageCluster)},
+			{Name: util.GenerateNameForCephBlockPoolSC(storageCluster)},
+			{Name: util.GenerateNameForCephFilesystemSC(storageCluster)},
 		}
 		spec.VolumeSnapshotClasses = []ocsv1a1.VolumeSnapshotClassSpec{
-			{Name: generateNameForSnapshotClass(storageCluster, rbdSnapshotter)},
-			{Name: generateNameForSnapshotClass(storageCluster, cephfsSnapshotter)},
+			{Name: util.GenerateNameForSnapshotClass(storageCluster.Name, util.RbdSnapshotter)},
+			{Name: util.GenerateNameForSnapshotClass(storageCluster.Name, util.CephfsSnapshotter)},
 		}
 		spec.VolumeGroupSnapshotClasses = []ocsv1a1.VolumeGroupSnapshotClassSpec{
-			{Name: generateNameForGroupSnapshotClass(storageCluster, rbdGroupSnapshotter)},
-			{Name: generateNameForGroupSnapshotClass(storageCluster, cephfsGroupSnapshotter)},
+			{Name: util.GenerateNameForGroupSnapshotClass(storageCluster, util.RbdGroupSnapshotter)},
+			{Name: util.GenerateNameForGroupSnapshotClass(storageCluster, util.CephfsGroupSnapshotter)},
 		}
 		return nil
 	}); err != nil {

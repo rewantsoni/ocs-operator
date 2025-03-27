@@ -3,6 +3,7 @@ package storagecluster
 import (
 	"context"
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	"testing"
 
 	"github.com/imdario/mergo"
@@ -86,7 +87,7 @@ func assertCephBlockPools(t *testing.T, reconciler StorageClusterReconciler, cr 
 
 	expectedCbp := cephv1.CephBlockPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateNameForCephBlockPool(cr),
+			Name:      util.GenerateNameForCephBlockPool(cr.Name),
 			Namespace: cr.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{

@@ -2,67 +2,52 @@ package storagecluster
 
 import (
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	"reflect"
 
 	groupsnapapi "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumegroupsnapshot/v1beta1"
-	snapapi "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type groupSnapshotterType string
-
 type ocsGroupSnapshotClass struct{}
-
-const (
-	rbdGroupSnapshotter    groupSnapshotterType = "rbd"
-	cephfsGroupSnapshotter groupSnapshotterType = "cephfs"
-)
-
-const (
-	groupSnapshotterSecretNameKey      = "csi.storage.k8s.io/group-snapshotter-secret-name"
-	groupSnapshotterSecretNamespaceKey = "csi.storage.k8s.io/group-snapshotter-secret-namespace"
-)
 
 type GroupSnapshotClassConfiguration struct {
 	groupSnapshotClass *groupsnapapi.VolumeGroupSnapshotClass
 	reconcileStrategy  ReconcileStrategy
 }
 
-func newVolumeGroupSnapshotClass(instance *ocsv1.StorageCluster, groupSnaphotType groupSnapshotterType) *groupsnapapi.VolumeGroupSnapshotClass {
-	paramKey, paramValue := setParameterBasedOnSnapshotterType(instance, groupSnaphotType)
-	groupSnapClass := &groupsnapapi.VolumeGroupSnapshotClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateNameForGroupSnapshotClass(instance, groupSnaphotType),
-		},
-		Driver: generateNameForSnapshotClassDriver(SnapshotterType(groupSnaphotType)),
-		Parameters: map[string]string{
-			"clusterID":                        instance.Namespace,
-			paramKey:                           paramValue,
-			groupSnapshotterSecretNameKey:      generateNameForSnapshotClassSecret(instance, SnapshotterType(groupSnaphotType)),
-			groupSnapshotterSecretNamespaceKey: instance.Namespace,
-		},
-		DeletionPolicy: snapapi.VolumeSnapshotContentDelete,
-	}
-	return groupSnapClass
-}
-
 func newCephFilesystemGroupSnapshotClassConfiguration(instance *ocsv1.StorageCluster) GroupSnapshotClassConfiguration {
-	return GroupSnapshotClassConfiguration{
-		groupSnapshotClass: newVolumeGroupSnapshotClass(instance, cephfsGroupSnapshotter),
-		reconcileStrategy:  ReconcileStrategy(instance.Spec.ManagedResources.CephFilesystems.ReconcileStrategy),
+	gsc := GroupSnapshotClassConfiguration{
+		groupSnapshotClass: util.NewDefaultCephFsGroupSnapshotClass(
+			instance.Namespace,
+			"rook-csi-cephfs-provisioner",
+			instance.Namespace,
+			util.GenerateNameForCephFilesystem(instance.Name),
+			"",
+		),
+		reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephFilesystems.ReconcileStrategy),
 	}
+	gsc.groupSnapshotClass.Name = util.GenerateNameForGroupSnapshotClass(instance, util.CephfsGroupSnapshotter)
+	return gsc
 }
 
 func newCephBlockPoolGroupSnapshotClassConfiguration(instance *ocsv1.StorageCluster) GroupSnapshotClassConfiguration {
-	return GroupSnapshotClassConfiguration{
-		groupSnapshotClass: newVolumeGroupSnapshotClass(instance, rbdGroupSnapshotter),
-		reconcileStrategy:  ReconcileStrategy(instance.Spec.ManagedResources.CephBlockPools.ReconcileStrategy),
+	gsc := GroupSnapshotClassConfiguration{
+		groupSnapshotClass: util.NewDefaultCephFsGroupSnapshotClass(
+			instance.Namespace,
+			"rook-csi-rbd-provisioner",
+			instance.Namespace,
+			util.GenerateNameForCephBlockPool(instance.Name),
+			"",
+		),
+		reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephBlockPools.ReconcileStrategy),
 	}
+	gsc.groupSnapshotClass.Name = util.GenerateNameForGroupSnapshotClass(instance, util.RbdGroupSnapshotter)
+	return gsc
 }
 
 func newGroupSnapshotClassConfigurations(instance *ocsv1.StorageCluster) []GroupSnapshotClassConfiguration {

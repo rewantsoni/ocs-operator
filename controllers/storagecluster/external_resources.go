@@ -5,9 +5,13 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/defaults"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
+	storagev1 "k8s.io/api/storage/v1"
 	"net"
 	"reflect"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +38,7 @@ const (
 	cephRgwStorageClassName                     = "ceph-rgw"
 	externalCephRgwEndpointKey                  = "endpoint"
 	cephRgwTLSSecretKey                         = "ceph-rgw-tls-cert"
+	storageClassSkippedError                    = "some StorageClasses were skipped while waiting for pre-requisites to be met"
 )
 
 // store the name of the rados-namespace
@@ -50,6 +55,13 @@ type ExternalResource struct {
 	Kind string            `json:"kind"`
 	Data map[string]string `json:"data"`
 	Name string            `json:"name"`
+}
+
+// StorageClassConfiguration provides configuration options for a StorageClass.
+type StorageClassConfiguration struct {
+	storageClass      *storagev1.StorageClass
+	reconcileStrategy ReconcileStrategy
+	isClusterExternal bool
 }
 
 type ocsExternalResources struct{}
@@ -346,21 +358,78 @@ func (r *StorageClusterReconciler) createExternalStorageClusterResources(instanc
 
 		case "StorageClass":
 			var scc StorageClassConfiguration
-			var err error
 			if d.Name == cephFsStorageClassName {
-				scc = newCephFilesystemStorageClassConfiguration(instance)
+				scc = StorageClassConfiguration{
+					storageClass: util.NewDefaultCephFsStorageClass(
+						instance.Namespace,
+						util.GenerateNameForCephFilesystem(instance.Name),
+						"rook-csi-cephfs-provisioner",
+						"rook-csi-cephfs-node",
+						instance.Namespace,
+						"",
+					),
+					reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephFilesystems.ReconcileStrategy),
+					isClusterExternal: instance.Spec.ExternalStorage.Enable,
+				}
+				scc.storageClass.Name = util.GenerateNameForCephFilesystemSC(instance)
 			} else if d.Name == cephRbdStorageClassName {
-				scc = newCephBlockPoolStorageClassConfiguration(instance)
+				scc = StorageClassConfiguration{
+					storageClass: util.NewDefaultRbdStorageClass(
+						instance.Namespace,
+						util.GenerateNameForCephBlockPool(instance.Name),
+						"rook-csi-rbd-provisioner",
+						"rook-csi-rbd-node",
+						instance.Namespace,
+						"",
+						"",
+						instance.Spec.ManagedResources.CephBlockPools.DefaultStorageClass,
+						instance.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false",
+						false,
+					),
+					reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephBlockPools.ReconcileStrategy),
+					isClusterExternal: instance.Spec.ExternalStorage.Enable,
+				}
+				scc.storageClass.Name = util.GenerateNameForCephBlockPoolSC(instance)
 			} else if strings.HasPrefix(d.Name, cephRbdRadosNamespaceStorageClassNamePrefix) { // ceph-rbd-rados-namespace-<radosNamespaceName>
-				scc = newCephBlockPoolStorageClassConfiguration(instance)
+				scc = StorageClassConfiguration{
+					storageClass: util.NewDefaultRbdStorageClass(
+						instance.Namespace,
+						util.GenerateNameForCephBlockPool(instance.Name),
+						"rook-csi-rbd-provisioner",
+						"rook-csi-rbd-node",
+						instance.Namespace,
+						"",
+						"",
+						instance.Spec.ManagedResources.CephBlockPools.DefaultStorageClass,
+						instance.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false",
+						false,
+					),
+					reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephBlockPools.ReconcileStrategy),
+					isClusterExternal: instance.Spec.ExternalStorage.Enable,
+				}
 				// update the storageclass name to rados storagesclass name
 				scc.storageClass.Name = fmt.Sprintf("%s-%s", instance.Name, d.Name)
 			} else if d.Name == cephRbdTopologyStorageClassName {
-				scc = newNonResilientCephBlockPoolStorageClassConfiguration(instance)
-				scc.storageClass.Parameters["topologyConstrainedPools"], err = getTopologyConstrainedPoolsExternalMode(d.Data)
+				topologyConstrainedPools, err := getTopologyConstrainedPoolsExternalMode(d.Data)
 				if err != nil {
-					r.Log.Error(err, "Failed to get topologyConstrainedPools from external mode secret.", "StorageClass", klog.KRef(instance.Namespace, d.Name))
+					r.Log.Error(
+						err,
+						"Failed to get topologyConstrainedPools from external mode secret.",
+						"StorageClass",
+						klog.KRef(instance.Namespace, d.Name),
+					)
 					return err
+				}
+				scc = StorageClassConfiguration{
+					storageClass: util.NewDefaultNonResilientRbdStorageClass(
+						instance.Namespace,
+						topologyConstrainedPools,
+						"rook-csi-rbd-provisioner",
+						"rook-csi-rbd-node",
+						instance.Namespace,
+						"",
+						instance.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false",
+					),
 				}
 			} else if d.Name == cephRgwStorageClassName {
 				rgwEndpoint = d.Data[externalCephRgwEndpointKey]
@@ -375,7 +444,15 @@ func (r *StorageClusterReconciler) createExternalStorageClusterResources(instanc
 				if err != nil {
 					continue
 				}
-				scc = newCephOBCStorageClassConfiguration(instance)
+				scc = StorageClassConfiguration{
+					storageClass: util.NewDefaultOBCStorageClass(
+						instance.Namespace,
+						generateNameForCephObjectStore(instance),
+					),
+					reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephObjectStores.ReconcileStrategy),
+					isClusterExternal: instance.Spec.ExternalStorage.Enable,
+				}
+				scc.storageClass.Name = generateNameForCephRgwSC(instance)
 			}
 
 			if scc.storageClass == nil {
@@ -412,6 +489,163 @@ func (r *StorageClusterReconciler) createExternalStorageClusterResources(instanc
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func (r *StorageClusterReconciler) createStorageClasses(sccs []StorageClassConfiguration, namespace string) error {
+	var skippedSC []string
+	for _, scc := range sccs {
+		if scc.reconcileStrategy == ReconcileStrategyIgnore {
+			continue
+		}
+		sc := scc.storageClass
+
+		switch {
+		case (strings.Contains(sc.Name, "-ceph-rbd") || (strings.Contains(sc.Provisioner, util.RbdDriverName)) && !strings.Contains(sc.Name, "-ceph-non-resilient-rbd")) && !scc.isClusterExternal:
+			// wait for CephBlockPool to be ready
+			cephBlockPool := cephv1.CephBlockPool{}
+			key := types.NamespacedName{Name: sc.Parameters["pool"], Namespace: namespace}
+			err := r.Client.Get(context.TODO(), key, &cephBlockPool)
+			if err != nil || cephBlockPool.Status == nil || cephBlockPool.Status.Phase != cephv1.ConditionType(util.PhaseReady) {
+				r.Log.Info("Waiting for CephBlockPool to be Ready. Skip reconciling StorageClass",
+					"CephBlockPool", klog.KRef(key.Namespace, key.Name),
+					"StorageClass", klog.KRef("", sc.Name),
+				)
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+		case (scc.isClusterExternal && strings.Contains(sc.Name, "-rados-namespace")):
+			// if rados namespace is provided, update the `storageclass cluster-id = rados-namespace cluster-id`
+			if radosNamespaceName == "" {
+				r.Log.Info("radosNamespaceName not updated successfully")
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+			radosNamespace := cephv1.CephBlockPoolRadosNamespace{}
+			key := types.NamespacedName{Name: radosNamespaceName, Namespace: namespace}
+			err := r.Client.Get(context.TODO(), key, &radosNamespace)
+			if err != nil || radosNamespace.Status == nil || radosNamespace.Status.Phase != cephv1.ConditionType(util.PhaseReady) || radosNamespace.Status.Info["clusterID"] == "" {
+				r.Log.Info("Waiting for radosNamespace to be Ready. Skip reconciling StorageClass",
+					"radosNamespace", klog.KRef(key.Namespace, key.Name),
+					"StorageClass", klog.KRef("", sc.Name),
+				)
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+			sc.Parameters["clusterID"] = radosNamespace.Status.Info["clusterID"]
+
+		case (strings.Contains(sc.Name, "-ceph-non-resilient-rbd") || sc.Parameters["topologyConstrainedPools"] != "") && !scc.isClusterExternal:
+			// wait for CephBlockPools to be ready
+			cephBlockPools := cephv1.CephBlockPoolList{}
+			err := r.Client.List(context.TODO(), &cephBlockPools, client.InNamespace(namespace))
+			if err != nil {
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+			num := strings.Count(sc.Parameters["topologyConstrainedPools"], "poolName")
+			var counter = 0
+			// Waiting for all the non-resilient cephblockpools to be ready
+			for _, cephBlockPool := range cephBlockPools.Items {
+				// Do not count the default cephblockpools
+				if cephBlockPool.Spec.DeviceClass == "" || cephBlockPool.Spec.DeviceClass == "replicated" {
+					continue
+				}
+				if cephBlockPool.Status != nil && cephBlockPool.Status.Phase == cephv1.ConditionType(util.PhaseReady) {
+					counter++
+				} else {
+					r.Log.Info("Waiting for Non-resilient CephBlockPools to be Ready. Skip reconciling StorageClass",
+						"CephBlockPool", klog.KRef(cephBlockPool.Namespace, cephBlockPool.Name),
+						"StorageClass", klog.KRef("", sc.Name),
+					)
+				}
+			}
+			if counter < num {
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+		case (strings.Contains(sc.Name, "-cephfs") || strings.Contains(sc.Provisioner, util.CephFSDriverName)) && !scc.isClusterExternal:
+			// wait for CephFilesystem to be ready
+			cephFilesystem := cephv1.CephFilesystem{}
+			key := types.NamespacedName{Name: sc.Parameters["fsName"], Namespace: namespace}
+			err := r.Client.Get(context.TODO(), key, &cephFilesystem)
+			if err != nil || cephFilesystem.Status == nil || cephFilesystem.Status.Phase != cephv1.ConditionType(util.PhaseReady) {
+				r.Log.Info("Waiting for CephFilesystem to be Ready. Skip reconciling StorageClass",
+					"CephFilesystem", klog.KRef(key.Namespace, key.Name),
+					"StorageClass", klog.KRef("", sc.Name),
+				)
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+		case strings.Contains(sc.Name, "-nfs") || strings.Contains(sc.Provisioner, util.NfsDriverName):
+			// wait for CephNFS to be ready
+			cephNFS := cephv1.CephNFS{}
+			key := types.NamespacedName{Name: sc.Parameters["nfsCluster"], Namespace: namespace}
+			err := r.Client.Get(context.TODO(), key, &cephNFS)
+			if err != nil || cephNFS.Status == nil || cephNFS.Status.Phase != util.PhaseReady {
+				r.Log.Info("Waiting for CephNFS to be Ready. Skip reconciling StorageClass",
+					"CephNFS", klog.KRef(key.Namespace, key.Name),
+					"StorageClass", klog.KRef("", sc.Name),
+				)
+				skippedSC = append(skippedSC, sc.Name)
+				continue
+			}
+		}
+
+		scRecreated := false
+		existing := &storagev1.StorageClass{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: sc.Name, Namespace: sc.Namespace}, existing)
+
+		if errors.IsNotFound(err) {
+			// Since the StorageClass is not found, we will create a new one
+			r.Log.Info("Creating StorageClass.", "StorageClass", klog.KRef(sc.Namespace, existing.Name))
+			err = r.Client.Create(context.TODO(), sc)
+			if err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		} else {
+			if scc.reconcileStrategy == ReconcileStrategyInit {
+				continue
+			}
+			if existing.DeletionTimestamp != nil {
+				return fmt.Errorf("failed to restore StorageClass  %s because it is marked for deletion", existing.Name)
+			}
+			if !reflect.DeepEqual(sc.Parameters, existing.Parameters) {
+				// Since we have to update the existing StorageClass
+				// So, we will delete the existing storageclass and create a new one
+				r.Log.Info("StorageClass needs to be updated, deleting it.", "StorageClass", klog.KRef(sc.Namespace, existing.Name))
+				err = r.Client.Delete(context.TODO(), existing)
+				if err != nil {
+					r.Log.Error(err, "Failed to delete StorageClass.", "StorageClass", klog.KRef(sc.Namespace, existing.Name))
+					return err
+				}
+				r.Log.Info("Creating StorageClass.", "StorageClass", klog.KRef(sc.Namespace, sc.Name))
+				err = r.Client.Create(context.TODO(), sc)
+				if err != nil {
+					r.Log.Info("Failed to create StorageClass.", "StorageClass", klog.KRef(sc.Namespace, sc.Name))
+					return err
+				}
+				scRecreated = true
+			}
+			if !scRecreated {
+				// Delete existing key rotation annotation and set it on sc only when it is false
+				delete(existing.Annotations, defaults.KeyRotationEnableAnnotation)
+				if krState := sc.GetAnnotations()[defaults.KeyRotationEnableAnnotation]; krState == "false" {
+					util.AddAnnotation(existing, defaults.KeyRotationEnableAnnotation, krState)
+				}
+
+				err = r.Client.Update(context.TODO(), existing)
+				if err != nil {
+					r.Log.Error(err, "Failed to update annotations on the StorageClass.", "StorageClass", klog.KRef(sc.Namespace, existing.Name))
+					return err
+				}
+			}
+		}
+	}
+	if len(skippedSC) > 0 {
+		return fmt.Errorf("%s: [%s]", storageClassSkippedError, strings.Join(skippedSC, ","))
 	}
 	return nil
 }
@@ -507,4 +741,45 @@ func (r *StorageClusterReconciler) deleteExternalSecret(sc *ocsv1.StorageCluster
 		r.Log.Error(err, "Error while deleting external rhcs mode secret.")
 	}
 	return err
+}
+
+// getTopologyConstrainedPoolsExternalMode constructs the topologyConstrainedPools string for external mode from the data map
+func getTopologyConstrainedPoolsExternalMode(data map[string]string) (string, error) {
+	type topologySegment struct {
+		DomainLabel string `json:"domainLabel"`
+		DomainValue string `json:"value"`
+	}
+	// TopologyConstrainedPool stores the pool name and a list of its associated topology domain values.
+	type topologyConstrainedPool struct {
+		PoolName       string            `json:"poolName"`
+		DomainSegments []topologySegment `json:"domainSegments"`
+	}
+	var topologyConstrainedPools []topologyConstrainedPool
+
+	domainLabel := data["topologyFailureDomainLabel"]
+	domainValues := strings.Split(data["topologyFailureDomainValues"], ",")
+	poolNames := strings.Split(data["topologyPools"], ",")
+
+	// Check if the number of pool names and domain values are equal
+	if len(poolNames) != len(domainValues) {
+		return "", fmt.Errorf("number of pool names and domain values are not equal")
+	}
+
+	for i, poolName := range poolNames {
+		topologyConstrainedPools = append(topologyConstrainedPools, topologyConstrainedPool{
+			PoolName: poolName,
+			DomainSegments: []topologySegment{
+				{
+					DomainLabel: domainLabel,
+					DomainValue: domainValues[i],
+				},
+			},
+		})
+	}
+	// returning as string as parameters are of type map[string]string
+	topologyConstrainedPoolsStr, err := json.MarshalIndent(topologyConstrainedPools, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(topologyConstrainedPoolsStr), nil
 }

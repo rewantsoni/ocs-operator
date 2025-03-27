@@ -13,6 +13,10 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	groupsnapapi "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumegroupsnapshot/v1beta1"
+	snapapi "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/defaults"
+	storagev1 "k8s.io/api/storage/v1"
 	"math"
 	"net"
 	"slices"
@@ -330,6 +334,7 @@ func newScheme() (*runtime.Scheme, error) {
 func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerResource *ocsv1alpha1.StorageConsumer) ([]*pb.ExternalResource, error) {
 	var extR []*pb.ExternalResource
 
+	// CephConnection
 	// Configmap with mon endpoints
 	configmap := &v1.ConfigMap{}
 	err := s.client.Get(ctx, types.NamespacedName{Name: monConfigMap, Namespace: s.namespace}, configmap)
@@ -341,15 +346,6 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		return nil, fmt.Errorf("configmap %s data is empty", monConfigMap)
 	}
 
-	extR = append(extR, &pb.ExternalResource{
-		Name: monConfigMap,
-		Kind: "ConfigMap",
-		Data: mustMarshal(map[string]string{
-			"data":     configmap.Data["data"], // IP Address of all mon's
-			"maxMonId": "0",
-			"mapping":  "{}",
-		})})
-
 	monIps, err := extractMonitorIps(configmap.Data["data"])
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract monitor IPs from configmap %s: %v", monConfigMap, err)
@@ -357,61 +353,276 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 
 	extR = append(extR, &pb.ExternalResource{
 		Kind: "CephConnection",
-		Name: "monitor-endpoints",
+		Name: consumerResource.Status.Client.Name,
 		Data: mustMarshal(&csiopv1a1.CephConnectionSpec{Monitors: monIps}),
 	})
 
-	scMon := &v1.Secret{}
-	// Secret storing cluster mon.admin key, fsid and name
-	err = s.client.Get(ctx, types.NamespacedName{Name: monSecret, Namespace: s.namespace}, scMon)
+	consumerConfigMap := &v1.ConfigMap{}
+	if consumerResource.Status.ResourceNameMappingConfigMap.Name == "" {
+		return nil, fmt.Errorf("waiting for ResourceNameMappingConfig to be generated")
+	}
+	consumerConfigMap.Name = consumerResource.Status.ResourceNameMappingConfigMap.Name
+	consumerConfigMap.Namespace = consumerResource.Namespace
+	err = s.client.Get(ctx, client.ObjectKeyFromObject(consumerConfigMap), consumerConfigMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get %s secret. %v", monSecret, err)
+		return nil, fmt.Errorf("failed to get %s configMap. %v", consumerConfigMap.Name, err)
 	}
 
-	fsid := string(scMon.Data["fsid"])
-	if fsid == "" {
-		return nil, fmt.Errorf("secret %s data fsid is empty", monSecret)
+	if consumerConfigMap.Data == nil {
+		return nil, fmt.Errorf("waiting StorageConsumer ResourceNameMappingConfig to be generated")
 	}
 
-	// Get mgr pod hostIP
-	podList := &corev1.PodList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(s.namespace),
-		client.MatchingLabels(map[string]string{"app": "rook-ceph-mgr"}),
-	}
-	err = s.client.List(ctx, podList, listOpts...)
+	consumerConfig := util.WrapStorageConsumerResourceMap(consumerConfigMap.Data)
+
+	// ClientProfile
+	storageCluster, err := util.GetStorageClusterInNamespace(ctx, s.client, s.namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list pod with rook-ceph-mgr label. %v", err)
+		return nil, err
 	}
-	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("no pods available with rook-ceph-mgr label")
-	}
-
-	mgrPod := &podList.Items[0]
-	var port int32 = -1
-
-	for i := range mgrPod.Spec.Containers {
-		container := &mgrPod.Spec.Containers[i]
-		if container.Name == "mgr" {
-			for j := range container.Ports {
-				if container.Ports[j].Name == "http-metrics" {
-					port = container.Ports[j].ContainerPort
-				}
-			}
+	var kernelMountOptions map[string]string
+	for _, option := range strings.Split(util.GetCephFSKernelMountOptions(storageCluster), ",") {
+		if kernelMountOptions == nil {
+			kernelMountOptions = map[string]string{}
 		}
+		parts := strings.Split(option, "=")
+		kernelMountOptions[parts[0]] = parts[1]
 	}
 
-	if port < 0 {
-		return nil, fmt.Errorf("mgr pod port is empty")
+	profileMap := make(map[string]*csiopv1a1.ClientProfileSpec)
+
+	rbdClientProfileName := consumerConfig.GetRbdClientProfileName()
+	cephFsClientProfileName := consumerConfig.GetCephFsClientProfileName()
+
+	if _, exists := profileMap[rbdClientProfileName]; !exists {
+		profileMap[rbdClientProfileName] = &csiopv1a1.ClientProfileSpec{}
+	}
+	profileMap[rbdClientProfileName].Rbd = &csiopv1a1.RbdConfigSpec{
+		RadosNamespace: consumerConfig.GetRbdRadosNamespaceName(),
+	}
+	profileMap[rbdClientProfileName].CephConnectionRef = corev1.LocalObjectReference{Name: consumerResource.Status.Client.Name}
+
+	if _, exists := profileMap[cephFsClientProfileName]; !exists {
+		profileMap[cephFsClientProfileName] = &csiopv1a1.ClientProfileSpec{}
+	}
+	profileMap[cephFsClientProfileName].CephFs = &csiopv1a1.CephFsConfigSpec{
+		SubVolumeGroup:     consumerConfig.GetSubVolumeGroupName(),
+		KernelMountOptions: kernelMountOptions,
+		RadosNamespace:     ptr.To(consumerConfig.GetSubVolumeGroupRadosNamespaceName()),
+	}
+	profileMap[cephFsClientProfileName].CephConnectionRef = corev1.LocalObjectReference{Name: consumerResource.Status.Client.Name}
+
+	for profileName, profileSpec := range profileMap {
+		extR = append(extR, &pb.ExternalResource{
+			Kind: "ClientProfile",
+			Name: profileName,
+			Data: mustMarshal(profileSpec),
+		})
 	}
 
-	extR = append(extR, &pb.ExternalResource{
-		Name: "monitoring-endpoint",
-		Kind: "CephCluster",
-		Data: mustMarshal(map[string]string{
-			"MonitoringEndpoint": mgrPod.Status.HostIP,
-			"MonitoringPort":     strconv.Itoa(int(port)),
-		})})
+	//TODO: skip for internal storageConsumer
+	//CephClients
+	cephClients := []string{
+		consumerConfig.GetCsiRbdProvisionerSecretName(),
+		consumerConfig.GetCsiRbdNodeSecretName(),
+		consumerConfig.GetCsiCephFsProvisionerSecretName(),
+		consumerConfig.GetCsiCephFsNodeSecretName(),
+	}
+
+	for i := range cephClients {
+		cephClient := &rookCephv1.CephClient{}
+		cephClient.Name = cephClients[i]
+		cephClient.Namespace = consumerResource.Namespace
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(cephClient), cephClient); err != nil {
+			return nil, err
+		}
+
+		cephUserSecret := &v1.Secret{}
+		cephUserSecret.Namespace = consumerResource.Namespace
+		if cephClient.Status != nil &&
+			cephClient.Status.Info["secretName"] != "" {
+			cephUserSecret.Name = cephClient.Status.Info["secretName"]
+		}
+		if cephUserSecret.Name == "" {
+			return nil, status.Errorf(codes.Internal, "failed to find cephclient secret name")
+		}
+
+		if err = s.client.Get(ctx, client.ObjectKeyFromObject(cephUserSecret), cephUserSecret); err != nil {
+			return nil, fmt.Errorf("failed to get %s secret. %v", cephUserSecret, err)
+		}
+
+		extR = append(extR, &pb.ExternalResource{
+			Name: cephUserSecret.Name,
+			Kind: "Secret",
+			Data: mustMarshal(cephUserSecret.Data),
+		})
+	}
+
+	var fsid string
+	if cephCluster, err := util.GetCephClusterInNamespace(ctx, s.client, s.namespace); err != nil {
+		return nil, err
+	} else if cephCluster.Status.CephStatus == nil || cephCluster.Status.CephStatus.FSID == "" {
+		return nil, fmt.Errorf("waiting for Ceph FSID")
+	} else {
+		fsid = cephCluster.Status.CephStatus.FSID
+	}
+
+	drRbdStorageId := calculateCephRbdStorageID(
+		fsid,
+		consumerConfig.GetRbdRadosNamespaceName(),
+	)
+
+	drCephFsId := calculateCephFsStorageID(
+		fsid,
+		consumerConfig.GetSubVolumeGroupName(),
+	)
+
+	scMap := map[string]func() *storagev1.StorageClass{}
+
+	scMap[util.GenerateNameForCephBlockPoolSC(storageCluster)] = func() *storagev1.StorageClass {
+		return util.NewDefaultRbdStorageClass(
+			consumerConfig.GetRbdClientProfileName(),
+			util.GenerateNameForCephBlockPool(storageCluster.Name),
+			consumerConfig.GetCsiRbdProvisionerSecretName(),
+			consumerConfig.GetCsiRbdNodeSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			"",
+			drRbdStorageId,
+			storageCluster.Spec.ManagedResources.CephBlockPools.DefaultStorageClass,
+			storageCluster.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false",
+			false,
+		)
+	}
+
+	scMap[util.GenerateNameForCephBlockPoolVirtualizationSC(storageCluster)] = func() *storagev1.StorageClass {
+		return util.NewDefaultRbdStorageClass(
+			consumerConfig.GetRbdClientProfileName(),
+			util.GenerateNameForCephBlockPool(storageCluster.Name),
+			consumerConfig.GetCsiRbdProvisionerSecretName(),
+			consumerConfig.GetCsiRbdNodeSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			"",
+			drRbdStorageId,
+			storageCluster.Spec.ManagedResources.CephBlockPools.DefaultStorageClass,
+			storageCluster.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false",
+			true,
+		)
+	}
+
+	scMap[util.GenerateNameForNonResilientCephBlockPoolSC(storageCluster)] = func() *storagev1.StorageClass {
+		return util.NewDefaultNonResilientRbdStorageClass(
+			consumerConfig.GetRbdClientProfileName(),
+			util.GetTopologyConstrainedPools(storageCluster),
+			consumerConfig.GetCsiRbdProvisionerSecretName(),
+			consumerConfig.GetCsiRbdNodeSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			drRbdStorageId,
+			storageCluster.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false",
+		)
+	}
+
+	scMap[util.GenerateNameForCephFilesystemSC(storageCluster)] = func() *storagev1.StorageClass {
+		return util.NewDefaultCephFsStorageClass(
+			consumerConfig.GetRbdClientProfileName(),
+			util.GenerateNameForCephFilesystem(storageCluster.Name),
+			consumerConfig.GetCsiCephFsProvisionerSecretName(),
+			consumerConfig.GetCsiCephFsNodeSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			drCephFsId,
+		)
+	}
+
+	for i := 0; i < len(consumerResource.Spec.StorageClasses); i++ {
+		storageClassName := consumerResource.Spec.StorageClasses[i].Name
+
+		scGen := scMap[storageClassName]
+		if scGen != nil {
+			extR = append(extR, &pb.ExternalResource{
+				Kind: "StorageClass",
+				Name: storageClassName,
+				Data: mustMarshal(scGen()),
+			})
+		}
+		//TODO: Day-2 storageClasses
+	}
+
+	vscMap := map[string]func() *snapapi.VolumeSnapshotClass{}
+
+	vscMap[util.GenerateNameForSnapshotClass(storageCluster.Name, util.RbdSnapshotter)] = func() *snapapi.VolumeSnapshotClass {
+		return util.NewDefaultRbdSnapshotClass(
+			consumerConfig.GetRbdClientProfileName(),
+			consumerConfig.GetCsiRbdProvisionerSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			drRbdStorageId,
+		)
+	}
+
+	vscMap[util.GenerateNameForSnapshotClass(storageCluster.Name, util.CephfsSnapshotter)] = func() *snapapi.VolumeSnapshotClass {
+		return util.NewDefaultCephFsSnapshotClass(
+			consumerConfig.GetCephFsClientProfileName(),
+			consumerConfig.GetCsiCephFsProvisionerSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			drRbdStorageId,
+		)
+	}
+
+	vscMap[util.GenerateNameForSnapshotClass(storageCluster.Name, util.NfsSnapshotter)] = func() *snapapi.VolumeSnapshotClass {
+		return util.NewDefaultNfsSnapshotClass(
+			consumerConfig.GetNfsClientProfileName(),
+			consumerConfig.GetCsiNfsProvisionerSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			drRbdStorageId,
+		)
+	}
+
+	for i := 0; i < len(consumerResource.Spec.VolumeSnapshotClasses); i++ {
+		snapshotClassName := consumerResource.Spec.VolumeSnapshotClasses[i].Name
+
+		vscGen := scMap[snapshotClassName]
+		if vscGen != nil {
+			extR = append(extR, &pb.ExternalResource{
+				Kind: "VolumeSnapshotClass",
+				Name: snapshotClassName,
+				Data: mustMarshal(vscGen()),
+			})
+		}
+		//TODO: Day-2 snapshotclass and nfsSnapshot
+	}
+
+	vgscMap := map[string]func() *groupsnapapi.VolumeGroupSnapshotClass{}
+
+	vgscMap[util.GenerateNameForSnapshotClass(storageCluster.Name, util.RbdSnapshotter)] = func() *groupsnapapi.VolumeGroupSnapshotClass {
+		return util.NewDefaultRbdGroupSnapshotClass(
+			consumerConfig.GetRbdClientProfileName(),
+			consumerConfig.GetCsiRbdProvisionerSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			util.GenerateNameForCephBlockPool(storageCluster.Name),
+			drRbdStorageId,
+		)
+	}
+
+	vgscMap[util.GenerateNameForSnapshotClass(storageCluster.Name, util.CephfsSnapshotter)] = func() *groupsnapapi.VolumeGroupSnapshotClass {
+		return util.NewDefaultCephFsGroupSnapshotClass(
+			consumerConfig.GetCephFsClientProfileName(),
+			consumerConfig.GetCsiCephFsProvisionerSecretName(),
+			consumerResource.Status.Client.OperatorNamespace,
+			util.GenerateNameForCephFilesystem(storageCluster.Name),
+			drRbdStorageId,
+		)
+	}
+
+	for i := 0; i < len(consumerResource.Spec.VolumeGroupSnapshotClasses); i++ {
+		groupSnapshotClassName := consumerResource.Spec.VolumeGroupSnapshotClasses[i].Name
+
+		vgscGen := vgscMap[groupSnapshotClassName]
+		if vgscGen != nil {
+			extR = append(extR, &pb.ExternalResource{
+				Kind: "VolumeGroupSnapshotClass",
+				Name: groupSnapshotClassName,
+				Data: mustMarshal(vgscGen()),
+			})
+		}
+		//TODO: Day-2 groupSnapshotclass
+	}
 
 	if consumerResource.Spec.StorageQuotaInGiB > 0 {
 		clusterResourceQuotaSpec := &quotav1.ClusterResourceQuotaSpec{
@@ -480,59 +691,57 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		})
 	}
 
+	// Noobaa Configuration
 	// Fetch noobaa remote secret and management address and append to extResources
-	consumerName := consumerResource.Name
 	noobaaOperatorSecret := &v1.Secret{}
-	noobaaOperatorSecret.Name = fmt.Sprintf("noobaa-account-%s", consumerName)
+	noobaaOperatorSecret.Name = fmt.Sprintf("noobaa-account-%s", consumerResource.Name)
 	noobaaOperatorSecret.Namespace = s.namespace
 
-	if err := s.client.Get(ctx, client.ObjectKeyFromObject(noobaaOperatorSecret), noobaaOperatorSecret); err != nil {
-		if kerrors.IsNotFound(err) {
-			// ignoring because it is a provider cluster and the noobaa secret does not exist
-			return extR, nil
-
-		}
+	if err := s.client.Get(ctx, client.ObjectKeyFromObject(noobaaOperatorSecret), noobaaOperatorSecret); client.IgnoreNotFound(err) != nil {
 		return nil, fmt.Errorf("failed to get %s secret. %v", noobaaOperatorSecret.Name, err)
 	}
 
-	authToken, ok := noobaaOperatorSecret.Data["auth_token"]
-	if !ok || len(authToken) == 0 {
-		return nil, fmt.Errorf("auth_token not found in %s secret", noobaaOperatorSecret.Name)
+	if !kerrors.IsNotFound(err) {
+		authToken, ok := noobaaOperatorSecret.Data["auth_token"]
+		if !ok || len(authToken) == 0 {
+			return nil, fmt.Errorf("auth_token not found in %s secret", noobaaOperatorSecret.Name)
+		}
+
+		noobaMgmtRoute := &routev1.Route{}
+		noobaMgmtRoute.Name = "noobaa-mgmt"
+		noobaMgmtRoute.Namespace = s.namespace
+
+		if err = s.client.Get(ctx, client.ObjectKeyFromObject(noobaMgmtRoute), noobaMgmtRoute); err != nil {
+			return nil, fmt.Errorf("failed to get noobaa-mgmt route. %v", err)
+		}
+		if len(noobaMgmtRoute.Status.Ingress) == 0 {
+			return nil, fmt.Errorf("no Ingress available in noobaa-mgmt route")
+		}
+
+		noobaaMgmtAddress := noobaMgmtRoute.Status.Ingress[0].Host
+		if noobaaMgmtAddress == "" {
+			return nil, fmt.Errorf("no Host found in noobaa-mgmt route Ingress")
+		}
+		extR = append(extR, &pb.ExternalResource{
+			Name: "noobaa-remote-join-secret",
+			Kind: "Secret",
+			Data: mustMarshal(map[string]string{
+				"auth_token": string(authToken),
+				"mgmt_addr":  noobaaMgmtAddress,
+			}),
+		})
+
+		extR = append(extR, &pb.ExternalResource{
+			Name: "noobaa-remote",
+			Kind: "Noobaa",
+			Data: mustMarshal(&nbv1.NooBaaSpec{
+				JoinSecret: &v1.SecretReference{
+					Name: "noobaa-remote-join-secret",
+				},
+			}),
+		})
 	}
 
-	noobaMgmtRoute := &routev1.Route{}
-	noobaMgmtRoute.Name = "noobaa-mgmt"
-	noobaMgmtRoute.Namespace = s.namespace
-
-	if err = s.client.Get(ctx, client.ObjectKeyFromObject(noobaMgmtRoute), noobaMgmtRoute); err != nil {
-		return nil, fmt.Errorf("failed to get noobaa-mgmt route. %v", err)
-	}
-	if len(noobaMgmtRoute.Status.Ingress) == 0 {
-		return nil, fmt.Errorf("no Ingress available in noobaa-mgmt route")
-	}
-
-	noobaaMgmtAddress := noobaMgmtRoute.Status.Ingress[0].Host
-	if noobaaMgmtAddress == "" {
-		return nil, fmt.Errorf("no Host found in noobaa-mgmt route Ingress")
-	}
-	extR = append(extR, &pb.ExternalResource{
-		Name: "noobaa-remote-join-secret",
-		Kind: "Secret",
-		Data: mustMarshal(map[string]string{
-			"auth_token": string(authToken),
-			"mgmt_addr":  noobaaMgmtAddress,
-		}),
-	})
-
-	extR = append(extR, &pb.ExternalResource{
-		Name: "noobaa-remote",
-		Kind: "Noobaa",
-		Data: mustMarshal(&nbv1.NooBaaSpec{
-			JoinSecret: &v1.SecretReference{
-				Name: "noobaa-remote-join-secret",
-			},
-		}),
-	})
 	return extR, nil
 }
 

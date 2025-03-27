@@ -6,7 +6,6 @@ import (
 
 	nbv1 "github.com/noobaa/noobaa-operator/v5/pkg/apis/noobaa/v1alpha1"
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
-	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	storagev1 "k8s.io/api/storage/v1"
 
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
@@ -18,10 +17,6 @@ func generateNameForCephCluster(initData *ocsv1.StorageCluster) string {
 
 func generateNameForCephClusterFromString(name string) string {
 	return fmt.Sprintf("%s-cephcluster", name)
-}
-
-func generateNameForCephFilesystem(initData *ocsv1.StorageCluster) string {
-	return fmt.Sprintf("%s-cephfilesystem", initData.Name)
 }
 
 func generateNameForCephNFS(initData *ocsv1.StorageCluster) string {
@@ -44,14 +39,6 @@ func generateNameForCephObjectStoreUser(initData *ocsv1.StorageCluster) string {
 	return fmt.Sprintf("%s-cephobjectstoreuser", initData.Name)
 }
 
-func generateNameForCephBlockPool(initData *ocsv1.StorageCluster) string {
-	return fmt.Sprintf("%s-cephblockpool", initData.Name)
-}
-
-func generateNameForNonResilientCephBlockPool(initData *ocsv1.StorageCluster, failureDomainValue string) string {
-	return fmt.Sprintf("%s-cephblockpool-%s", initData.Name, failureDomainValue)
-}
-
 func generateNameForCephObjectStore(initData *ocsv1.StorageCluster) string {
 	return fmt.Sprintf("%s-%s", initData.Name, "cephobjectstore")
 }
@@ -61,20 +48,6 @@ func generateNameForCephRgwSC(initData *ocsv1.StorageCluster) string {
 		return initData.Spec.ManagedResources.CephObjectStores.StorageClassName
 	}
 	return fmt.Sprintf("%s-ceph-rgw", initData.Name)
-}
-
-func generateNameForCephFilesystemSC(initData *ocsv1.StorageCluster) string {
-	if initData.Spec.ManagedResources.CephFilesystems.StorageClassName != "" {
-		return initData.Spec.ManagedResources.CephFilesystems.StorageClassName
-	}
-	return fmt.Sprintf("%s-cephfs", initData.Name)
-}
-
-func generateNameForCephBlockPoolSC(initData *ocsv1.StorageCluster) string {
-	if initData.Spec.ManagedResources.CephBlockPools.StorageClassName != "" {
-		return initData.Spec.ManagedResources.CephBlockPools.StorageClassName
-	}
-	return fmt.Sprintf("%s-ceph-rbd", initData.Name)
 }
 
 func (r *StorageClusterReconciler) generateNameForExternalModeCephBlockPoolSC(nb *nbv1.NooBaa) (string, error) {
@@ -107,13 +80,6 @@ func (r *StorageClusterReconciler) generateNameForExternalModeCephBlockPoolSC(nb
 	return storageClassName, nil
 }
 
-func generateNameForCephBlockPoolVirtualizationSC(initData *ocsv1.StorageCluster) string {
-	if initData.Spec.ManagedResources.CephBlockPools.VirtualizationStorageClassName != "" {
-		return initData.Spec.ManagedResources.CephBlockPools.VirtualizationStorageClassName
-	}
-	return fmt.Sprintf("%s-ceph-rbd-virtualization", initData.Name)
-}
-
 func generateNameForEncryptedCephBlockPoolSC(initData *ocsv1.StorageCluster) string {
 	if initData.Spec.Encryption.StorageClassName != "" {
 		return initData.Spec.Encryption.StorageClassName
@@ -126,53 +92,6 @@ func generateNameForCephNetworkFilesystemSC(initData *ocsv1.StorageCluster) stri
 		return initData.Spec.NFS.StorageClassName
 	}
 	return fmt.Sprintf("%s-ceph-nfs", initData.Name)
-}
-
-// generateNameForSnapshotClass function generates 'SnapshotClass' name.
-// 'snapshotType' can be: 'rbdSnapshotter' or 'cephfsSnapshotter' or 'nfsSnapshotter'
-func generateNameForSnapshotClass(initData *ocsv1.StorageCluster, snapshotType SnapshotterType) string {
-	return fmt.Sprintf("%s-%splugin-snapclass", initData.Name, snapshotType)
-}
-
-func generateNameForGroupSnapshotClass(initData *ocsv1.StorageCluster, groupSnapshotType groupSnapshotterType) string {
-	if groupSnapshotType == rbdGroupSnapshotter {
-		return fmt.Sprintf("%s-ceph-%s-groupsnapclass", initData.Name, groupSnapshotType)
-	}
-	return fmt.Sprintf("%s-%s-groupsnapclass", initData.Name, groupSnapshotType)
-}
-
-func generateNameForSnapshotClassDriver(snapshotType SnapshotterType) string {
-	return fmt.Sprintf("%s.%s.csi.ceph.com", util.StorageClassDriverNamePrefix, snapshotType)
-}
-
-func setParameterBasedOnSnapshotterType(instance *ocsv1.StorageCluster, groupSnapshotType groupSnapshotterType) (string, string) {
-	if groupSnapshotType == rbdGroupSnapshotter {
-		return "pool", generateNameForCephBlockPool(instance)
-	}
-	return "fsName", generateNameForCephFilesystem(instance)
-}
-func generateNameForSnapshotClassSecret(instance *ocsv1.StorageCluster, snapshotType SnapshotterType) string {
-	// nfs uses the same cephfs secrets
-	if snapshotType == "nfs" {
-		snapshotType = "cephfs"
-	}
-	if instance.Spec.ExternalStorage.Enable {
-		data, ok := externalOCSResources[instance.UID]
-		if !ok {
-			log.Error(fmt.Errorf("Unable to retrieve external resource from externalOCSResources"),
-				"unable to generate name for snapshot class secret for external mode")
-		}
-		// print the Secret name which contains the prefix as the rook-csi-rbd/cephfs-provisioner default secret name
-		// for example if the secret name is rook-csi-rbd-node-rookStorage-replicapool it will check the prefix with rook-csi-rbd-node if it matches it will return that name
-		for _, d := range data {
-			if d.Kind == "Secret" {
-				if strings.Contains(d.Name, fmt.Sprintf("rook-csi-%s-provisioner", snapshotType)) {
-					return d.Name
-				}
-			}
-		}
-	}
-	return fmt.Sprintf("rook-csi-%s-provisioner", snapshotType)
 }
 
 func generateNameForCephRbdMirror(initData *ocsv1.StorageCluster) string {

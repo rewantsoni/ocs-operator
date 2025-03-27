@@ -3,6 +3,7 @@ package storagecluster
 import (
 	"context"
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/controllers/util"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -12,25 +13,9 @@ import (
 
 	snapapi "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// SnapshotterType represents a snapshotter type
-type SnapshotterType string
 
 type ocsSnapshotClass struct{}
-
-const (
-	rbdSnapshotter    SnapshotterType = "rbd"
-	cephfsSnapshotter SnapshotterType = "cephfs"
-	nfsSnapshotter    SnapshotterType = "nfs"
-)
-
-// secret name and namespace for snapshotter class
-const (
-	snapshotterSecretName      = "csi.storage.k8s.io/snapshotter-secret-name"
-	snapshotterSecretNamespace = "csi.storage.k8s.io/snapshotter-secret-namespace"
-)
 
 // SnapshotClassConfiguration provides configuration options for a SnapshotClass.
 type SnapshotClassConfiguration struct {
@@ -38,42 +23,30 @@ type SnapshotClassConfiguration struct {
 	reconcileStrategy ReconcileStrategy
 }
 
-// newVolumeSnapshotClass returns a new VolumeSnapshotter class backed by provided snapshotter type
-// available 'snapShotterType' values are 'rbd','cephfs' and 'cephnfs'
-func newVolumeSnapshotClass(instance *ocsv1.StorageCluster, snapShotterType SnapshotterType) *snapapi.VolumeSnapshotClass {
-	retSC := &snapapi.VolumeSnapshotClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateNameForSnapshotClass(instance, snapShotterType),
-		},
-		Driver: generateNameForSnapshotClassDriver(snapShotterType),
-		Parameters: map[string]string{
-			"clusterID":                instance.Namespace,
-			snapshotterSecretName:      generateNameForSnapshotClassSecret(instance, snapShotterType),
-			snapshotterSecretNamespace: instance.Namespace,
-		},
-		DeletionPolicy: snapapi.VolumeSnapshotContentDelete,
-	}
-	return retSC
-}
-
 func newCephFilesystemSnapshotClassConfiguration(instance *ocsv1.StorageCluster) SnapshotClassConfiguration {
-	return SnapshotClassConfiguration{
-		snapshotClass:     newVolumeSnapshotClass(instance, cephfsSnapshotter),
+	scc := SnapshotClassConfiguration{
+		snapshotClass:     util.NewDefaultCephFsSnapshotClass(instance.Namespace, "rook-csi-cephfs-provisioner", instance.Namespace, ""),
 		reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephFilesystems.ReconcileStrategy),
 	}
+	scc.snapshotClass.Name = util.GenerateNameForSnapshotClass(instance.Namespace, util.CephfsSnapshotter)
+	return scc
 }
 
 func newCephBlockPoolSnapshotClassConfiguration(instance *ocsv1.StorageCluster) SnapshotClassConfiguration {
-	return SnapshotClassConfiguration{
-		snapshotClass:     newVolumeSnapshotClass(instance, rbdSnapshotter),
+	scc := SnapshotClassConfiguration{
+		snapshotClass:     util.NewDefaultRbdSnapshotClass(instance.Namespace, "rook-csi-rbd-provisioner", instance.Namespace, ""),
 		reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephBlockPools.ReconcileStrategy),
 	}
+	scc.snapshotClass.Name = util.GenerateNameForSnapshotClass(instance.Namespace, util.RbdSnapshotter)
+	return scc
 }
 
 func newCephNetworkFilesystemSnapshotClassConfiguration(instance *ocsv1.StorageCluster) SnapshotClassConfiguration {
-	return SnapshotClassConfiguration{
-		snapshotClass: newVolumeSnapshotClass(instance, nfsSnapshotter),
+	scc := SnapshotClassConfiguration{
+		snapshotClass: util.NewDefaultNfsSnapshotClass(instance.Namespace, "rook-csi-cephfs-provisioner", instance.Namespace, ""),
 	}
+	scc.snapshotClass.Name = util.GenerateNameForSnapshotClass(instance.Namespace, util.NfsSnapshotter)
+	return scc
 }
 
 // newSnapshotClassConfigurations generates configuration options for Ceph SnapshotClasses.

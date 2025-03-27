@@ -440,7 +440,6 @@ func (r *StorageClusterReconciler) reconcilePhases(
 				&ocsCephObjectStores{},
 				&ocsCephObjectStoreUsers{},
 				&ocsCephRGWRoutes{},
-				&ocsStorageClass{},
 				&ocsNoobaaSystem{},
 				&ocsSnapshotClass{},
 				&ocsJobTemplates{},
