@@ -12,6 +12,48 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// Have a single function to generate the storageClass,
+// take a unique parameter
+
+func GenerateDefaultRbdStorageClass(clusterID, blockpoolname, provsionerSecet, nodeSecret, namespace string, isDefaultStorageClass bool, isEncrypted, SupportKetRotation, DrStorageID string) *storagev1.StorageClass {
+
+	sc:=&storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"description": "Provides RWO Filesystem volumes, and RWO and RWX Block volumes",
+				"reclaimspace.csiaddons.openshift.io/schedule": "@weekly",
+			},
+		},
+		ReclaimPolicy:        ptr.To(corev1.PersistentVolumeReclaimDelete),
+		AllowVolumeExpansion: ptr.To(true),
+		Provisioner:          util.RbdDriverName,
+		Parameters: map[string]string{
+			"clusterID":                 clusterID,
+			"pool":                      blockpoolname,
+			"imageFeatures":             "layering,deep-flatten,exclusive-lock,object-map,fast-diff",
+			"csi.storage.k8s.io/fstype": "ext4",
+			"imageFormat":               "2",
+			"csi.storage.k8s.io/provisioner-secret-name":            provsionerSecet,
+			"csi.storage.k8s.io/node-stage-secret-name":             nodeSecret,
+			"csi.storage.k8s.io/controller-expand-secret-name":      provsionerSecet,
+			"csi.storage.k8s.io/provisioner-secret-namespace":       namespace,
+			"csi.storage.k8s.io/node-stage-secret-namespace":        namespace,
+			"csi.storage.k8s.io/controller-expand-secret-namespace": namespace,
+		},
+	}
+
+	if isDefaultStorageClass {
+
+	}
+	if isDefaultStorageClass
+
+	return sc
+}
+func GenerateVirtRbdStorageClass()
+func GenerateNonResilitRbdStorageClass()
+...
+
+
 func getStorageClassTemplates(
 	storageCluster *ocsv1.StorageCluster,
 	consumerConfig util.StorageConsumerResources,

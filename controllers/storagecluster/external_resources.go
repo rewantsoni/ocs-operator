@@ -350,6 +350,11 @@ func (r *StorageClusterReconciler) createExternalStorageClusterResources(instanc
 			if d.Name == cephFsStorageClassName {
 				scc = newCephFilesystemStorageClassConfiguration(instance)
 			} else if d.Name == cephRbdStorageClassName {
+				scc = StorageClassConfiguration{
+					storageClass: server.server.GenerateDefaultRbdStorageClass()
+					reconcileStrategy: ReconcileStrategy(instance.Spec.ManagedResources.CephBlockPools.ReconcileStrategy),
+					isClusterExternal: instance.Spec.ExternalStorage.Enable,
+				}
 				scc = newCephBlockPoolStorageClassConfiguration(instance)
 			} else if strings.HasPrefix(d.Name, cephRbdRadosNamespaceStorageClassNamePrefix) { // ceph-rbd-rados-namespace-<radosNamespaceName>
 				scc = newCephBlockPoolStorageClassConfiguration(instance)

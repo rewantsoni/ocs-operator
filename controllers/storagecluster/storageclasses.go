@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/red-hat-storage/ocs-operator/v4/services/provider/server"
 	"reflect"
 	"strings"
 
@@ -251,6 +252,7 @@ func newCephFilesystemStorageClassConfiguration(initData *ocsv1.StorageCluster) 
 	persistentVolumeReclaimDelete := corev1.PersistentVolumeReclaimDelete
 	allowVolumeExpansion := true
 	managementSpec := initData.Spec.ManagedResources.CephFilesystems
+
 	return StorageClassConfiguration{
 		storageClass: &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
@@ -281,44 +283,22 @@ func newCephFilesystemStorageClassConfiguration(initData *ocsv1.StorageCluster) 
 
 // newCephBlockPoolStorageClassConfiguration generates configuration options for a Ceph Block Pool StorageClass.
 func newCephBlockPoolStorageClassConfiguration(initData *ocsv1.StorageCluster) StorageClassConfiguration {
-	persistentVolumeReclaimDelete := corev1.PersistentVolumeReclaimDelete
-	allowVolumeExpansion := true
 	managementSpec := initData.Spec.ManagedResources.CephBlockPools
-	scc := StorageClassConfiguration{
-		storageClass: &storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: util.GenerateNameForCephBlockPoolSC(initData),
-				Annotations: map[string]string{
-					"description": "Provides RWO Filesystem volumes, and RWO and RWX Block volumes",
-					"reclaimspace.csiaddons.openshift.io/schedule": "@weekly",
-				},
-			},
-			Provisioner:   util.RbdDriverName,
-			ReclaimPolicy: &persistentVolumeReclaimDelete,
-			// AllowVolumeExpansion is set to true to enable expansion of OCS backed Volumes
-			AllowVolumeExpansion: &allowVolumeExpansion,
-			Parameters: map[string]string{
-				"clusterID":                 initData.Namespace,
-				"pool":                      util.GenerateNameForCephBlockPool(initData.Name),
-				"imageFeatures":             "layering,deep-flatten,exclusive-lock,object-map,fast-diff",
-				"csi.storage.k8s.io/fstype": "ext4",
-				"imageFormat":               "2",
-				"csi.storage.k8s.io/provisioner-secret-name":            "rook-csi-rbd-provisioner",
-				"csi.storage.k8s.io/provisioner-secret-namespace":       initData.Namespace,
-				"csi.storage.k8s.io/node-stage-secret-name":             "rook-csi-rbd-node",
-				"csi.storage.k8s.io/node-stage-secret-namespace":        initData.Namespace,
-				"csi.storage.k8s.io/controller-expand-secret-name":      "rook-csi-rbd-provisioner",
-				"csi.storage.k8s.io/controller-expand-secret-namespace": initData.Namespace,
-			},
-		},
-		reconcileStrategy: ReconcileStrategy(managementSpec.ReconcileStrategy),
-		isClusterExternal: initData.Spec.ExternalStorage.Enable,
+
+	storageClass := server.GenerateDefaultRbdStorageClass(initData.Name, util.GenerateNameForCephBlockPool(initData.Name), "rook-csi-rbd-provisioner", "rook-csi-rbd-node", initData.Namespace, isDefaultSt)
+
+	storageClass.Name = util.GenerateNameForCephBlockPoolSC(initData)
+	if initData.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false" {
+		util.AddAnnotation(storageClass, defaults.KeyRotationEnableAnnotation, "false")
 	}
 	if initData.Spec.ManagedResources.CephBlockPools.DefaultStorageClass {
-		scc.storageClass.Annotations[defaultStorageClassAnnotation] = "true"
+		storageClass.Annotations[defaultStorageClassAnnotation] = "true"
 	}
-	if initData.GetAnnotations()[defaults.KeyRotationEnableAnnotation] == "false" {
-		util.AddAnnotation(scc.storageClass, defaults.KeyRotationEnableAnnotation, "false")
+
+	scc := StorageClassConfiguration{
+		storageClass:      storageClass,
+		reconcileStrategy: ReconcileStrategy(managementSpec.ReconcileStrategy),
+		isClusterExternal: initData.Spec.ExternalStorage.Enable,
 	}
 	return scc
 }

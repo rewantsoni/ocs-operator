@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	storagev1 "k8s.io/api/storage/v1"
 	"math"
 	"net"
 	"slices"
@@ -469,13 +470,29 @@ func (s *OCSProviderServer) getExternalResources(ctx context.Context, consumerRe
 		consumerResource.Status.Client.OperatorNamespace,
 	)
 
+	//create a list - tuple - keys(defaultRbd/defaultVirtRbd)... , SC name, -> template
+
+	myMap := map[string]func() *storagev1.StorageClass{}
+
+	myMap[util.GenerateNameForCephBlockPoolSC(storageCluster)] = func() *storagev1.StorageClass {
+		return GenerateDefaultRbdStorageClass(consumerConfig.GetRbdClientProfileName(), consumerConfig.GetCsiRbdProvisionerSecretName(), consumerConfig.GetNfsClientProfileName(), consumerConfig.GetRbdRadosNamespaceName(), consumerConfig.GetRbdClientProfileName())
+	}
+
 	for i := 0; i < len(consumerResource.Spec.StorageClasses); i++ {
 		storageClassName := consumerResource.Spec.StorageClasses[i].Name
 
-		if scTemplates[storageClassName] != nil {
-			extR = append(extR, scTemplates[storageClassName])
+		scGen := myMap[storageClassName]
+		if scGen != nil {
+			extR = append(extR, &pb.ExternalResource{
+				Kind: "StorageClass",
+				Name: storageClassName,
+				Data: mustMarshal(scGen()),
+			})
+		} else {
+			//TODO: Day-2 storageClasses
+
 		}
-		//TODO: Day-2 storageClasses
+
 	}
 
 	vscTempates := getVolumeSnapshotClassTemplates(

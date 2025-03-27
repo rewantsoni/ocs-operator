@@ -447,8 +447,8 @@ func GenerateHashForCephClient(storageConsumerName, cephUserType string) string 
 
 	c.StorageConsumerName = storageConsumerName
 	c.CephUserType = cephUserType
-
 	cephClient, err := json.Marshal(c)
+
 	if err != nil {
 		klog.Errorf("failed to marshal ceph client name for consumer %s. %v", storageConsumerName, err)
 		panic("failed to marshal")
