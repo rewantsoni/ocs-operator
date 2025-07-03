@@ -61,6 +61,10 @@ spec:
               storageClasses:
                 items:
                   properties:
+                    aliases:
+                      items:
+                        type: string
+                      type: array
                     name:
                       type: string
                   required:
@@ -73,6 +77,10 @@ spec:
               volumeGroupSnapshotClasses:
                 items:
                   properties:
+                    aliases:
+                      items:
+                        type: string
+                      type: array
                     name:
                       type: string
                   required:
@@ -82,6 +90,10 @@ spec:
               volumeReplicationClasses:
                 items:
                   properties:
+                    aliases:
+                      items:
+                        type: string
+                      type: array
                     name:
                       type: string
                   required:
@@ -91,6 +103,10 @@ spec:
               volumeSnapshotClasses:
                 items:
                   properties:
+                    aliases:
+                      items:
+                        type: string
+                      type: array
                     name:
                       type: string
                   required:
