@@ -345,8 +345,14 @@ func (r *StorageConsumerUpgradeReconciler) reconcileStorageConsumer(
 			{Name: util.GenerateNameForCephFilesystemStorageClass(storageCluster)},
 		}
 		spec.VolumeSnapshotClasses = []ocsv1alpha1.VolumeSnapshotClassSpec{
-			{Name: util.GenerateNameForSnapshotClass(storageCluster.Name, util.RbdSnapshotter)},
-			{Name: util.GenerateNameForSnapshotClass(storageCluster.Name, util.CephfsSnapshotter)},
+			{
+				Name:    util.GenerateNameForSnapshotClass(storageCluster.Name, util.RbdSnapshotter),
+				Aliases: []string{util.GenerateNameForCephBlockPoolStorageClass(storageCluster)},
+			},
+			{
+				Name:    util.GenerateNameForSnapshotClass(storageCluster.Name, util.CephfsSnapshotter),
+				Aliases: []string{util.GenerateNameForCephFilesystemStorageClass(storageCluster)},
+			},
 		}
 		spec.VolumeGroupSnapshotClasses = []ocsv1alpha1.VolumeGroupSnapshotClassSpec{
 			{Name: util.GenerateNameForGroupSnapshotClass(storageCluster, util.RbdGroupSnapshotter)},
