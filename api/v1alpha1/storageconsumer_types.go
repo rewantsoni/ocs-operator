@@ -59,22 +59,26 @@ type StorageConsumerSpec struct {
 
 type StorageClassSpec struct {
 	// +required
-	Name string `json:"name"`
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 type VolumeSnapshotClassSpec struct {
 	// +required
-	Name string `json:"name"`
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 type VolumeGroupSnapshotClassSpec struct {
 	// +required
-	Name string `json:"name"`
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 type VolumeReplicationClassSpec struct {
 	// +required
-	Name string `json:"name"`
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 // CephResourcesSpec hold details of created ceph resources required for external storage
