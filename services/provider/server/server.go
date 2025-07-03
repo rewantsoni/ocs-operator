@@ -1597,7 +1597,8 @@ func (s *OCSProviderServer) appendStorageClassKubeResources(
 	for i := range consumer.Spec.StorageClasses {
 		var storageClass *storagev1.StorageClass
 		var err error
-		storageClassName := consumer.Spec.StorageClasses[i].Name
+		storageClassSpec := consumer.Spec.StorageClasses[i]
+		storageClassName := storageClassSpec.Name
 		scGen := scMap[storageClassName]
 		if scGen != nil {
 			storageClass = scGen()
@@ -1624,6 +1625,10 @@ func (s *OCSProviderServer) appendStorageClassKubeResources(
 			klog.Warningf("The storage class %s is an external storage class, skipping", storageClassName)
 		} else {
 			kubeResources = append(kubeResources, storageClass)
+			for i := range storageClassSpec.Aliases {
+				storageClass.Name = storageClassSpec.Aliases[i]
+				kubeResources = append(kubeResources, storageClass)
+			}
 		}
 	}
 	return kubeResources, nil
@@ -1671,7 +1676,8 @@ func (s *OCSProviderServer) appendVolumeSnapshotClassKubeResources(
 	for i := range consumer.Spec.VolumeSnapshotClasses {
 		var snapshotClass *snapapi.VolumeSnapshotClass
 		var err error
-		snapshotClassName := consumer.Spec.VolumeSnapshotClasses[i].Name
+		snapshotClassSpec := consumer.Spec.VolumeSnapshotClasses[i]
+		snapshotClassName := snapshotClassSpec.Name
 		vscGen := vscMap[snapshotClassName]
 		if vscGen != nil {
 			snapshotClass = vscGen()
@@ -1698,6 +1704,10 @@ func (s *OCSProviderServer) appendVolumeSnapshotClassKubeResources(
 			klog.Warningf("The snapshot class %s is an external storage class, skipping", snapshotClassName)
 		} else {
 			kubeResources = append(kubeResources, snapshotClass)
+			for i := range snapshotClassSpec.Aliases {
+				snapshotClass.Name = snapshotClassSpec.Aliases[i]
+				kubeResources = append(kubeResources, snapshotClass)
+			}
 		}
 	}
 	return kubeResources, nil
@@ -1738,7 +1748,8 @@ func (s *OCSProviderServer) appendVolumeGroupSnapshotClassKubeResources(
 	for i := range consumer.Spec.VolumeGroupSnapshotClasses {
 		var groupSnapshotClass *groupsnapapi.VolumeGroupSnapshotClass
 		var err error
-		groupSnapshotClassName := consumer.Spec.VolumeGroupSnapshotClasses[i].Name
+		groupSnapshotClassSpec := consumer.Spec.VolumeGroupSnapshotClasses[i]
+		groupSnapshotClassName := groupSnapshotClassSpec.Name
 		vgscGen := vgscMap[groupSnapshotClassName]
 		if vgscGen != nil {
 			groupSnapshotClass = vgscGen()
@@ -1765,6 +1776,10 @@ func (s *OCSProviderServer) appendVolumeGroupSnapshotClassKubeResources(
 			klog.Warningf("The groupSnapshot class %s is an external storage class, skipping", groupSnapshotClassName)
 		} else {
 			kubeResources = append(kubeResources, groupSnapshotClass)
+			for i := range groupSnapshotClassSpec.Aliases {
+				groupSnapshotClass.Name = groupSnapshotClassSpec.Aliases[i]
+				kubeResources = append(kubeResources, groupSnapshotClass)
+			}
 		}
 	}
 	return kubeResources, nil
@@ -1791,7 +1806,8 @@ func (s *OCSProviderServer) appendVolumeReplicationClassKubeResources(
 	replicationID := util.CalculateMD5Hash(storageIDs)
 
 	for i := range consumer.Spec.VolumeReplicationClasses {
-		replicationClassName := consumer.Spec.VolumeReplicationClasses[i].Name
+		replicationClassSpec := consumer.Spec.VolumeReplicationClasses[i]
+		replicationClassName := replicationClassSpec.Name
 		//TODO: The code is written under the assumption VRC name is exactly the same as the template name and there
 		// is 1:1 mapping between template and vrc. The restriction will be relaxed in the future
 		vrcTemplate := &templatev1.Template{}
@@ -1828,6 +1844,10 @@ func (s *OCSProviderServer) appendVolumeReplicationClassKubeResources(
 			return kubeResources, fmt.Errorf("unsupported Provisioner for VolumeReplicationClass")
 		}
 		kubeResources = append(kubeResources, vrc)
+		for i := range replicationClassSpec.Aliases {
+			vrc.Name = replicationClassSpec.Aliases[i]
+			kubeResources = append(kubeResources, vrc)
+		}
 	}
 
 	return kubeResources, nil
