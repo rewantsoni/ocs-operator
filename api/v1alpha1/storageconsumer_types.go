@@ -132,6 +132,10 @@ type ClientStatus struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
+	// KernelVersion is the minimum kernel version of the nodes
+	// +optional
+	KernelVersion string `json:"kernelVersion,omitempty"`
+
 	// StorageQuotaUtilizationRatio is the ratio of utilized quota of connected client
 	// +optional
 	StorageQuotaUtilizationRatio float64 `json:"storageQuotaUtilizationRatio,omitempty"`

@@ -143,6 +143,10 @@ spec:
                   clusterName:
                     description: ClusterName is the name of the openshift cluster
                     type: string
+                  kernelVersion:
+                    description: KernelVersion is the minimum kernel version of the
+                      nodes
+                    type: string
                   name:
                     description: Name is the name of connected storageclient
                     type: string
