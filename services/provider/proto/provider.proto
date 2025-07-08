@@ -244,7 +244,8 @@ message ReportStatusRequest{
     string clientID = 8;
     // ocs-client-operator deployed namespace
     string clientOperatorNamespace = 9;
-
+    // kernelVersion is the minimum kernel version of the nodes
+    string kernelVersion = 10;
 }
 
 message ReportStatusResponse{

@@ -8,6 +8,7 @@ type StorageClientStatus interface {
 	GetClusterName() string
 	GetClientName() string
 	GetClientID() string
+	GetKernelVersion() string
 	GetStorageQuotaUtilizationRatio() float64
 
 	SetPlatformVersion(string) StorageClientStatus
@@ -17,6 +18,7 @@ type StorageClientStatus interface {
 	SetClusterName(string) StorageClientStatus
 	SetClientName(string) StorageClientStatus
 	SetClientID(string) StorageClientStatus
+	SetKernelVersion(string) StorageClientStatus
 	SetStorageQuotaUtilizationRatio(float64) StorageClientStatus
 }
 
