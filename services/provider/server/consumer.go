@@ -158,6 +158,7 @@ func (c *ocsConsumerManager) UpdateConsumerStatus(ctx context.Context, id string
 	consumerObj.Status.Client.Name = status.GetClientName()
 	consumerObj.Status.Client.ID = status.GetClientID()
 	consumerObj.Status.Client.ClusterName = status.GetClusterName()
+	consumerObj.Status.Client.KernelVersion = status.GetKernelVersion()
 	consumerObj.Status.Client.StorageQuotaUtilizationRatio = status.GetStorageQuotaUtilizationRatio()
 
 	if err := c.client.Status().Update(ctx, consumerObj); err != nil {
