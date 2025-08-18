@@ -1,6 +1,7 @@
 package server
 
 import (
+	"k8s.io/klog/v2"
 	"reflect"
 	"testing"
 
@@ -82,6 +83,7 @@ func TestGetKubeResourcesForClass(t *testing.T) {
 	}
 
 	objs := getKubeResourcesForClass(
+		klog.Background(),
 		consumer.Spec.StorageClasses,
 		"StorageClass",
 		genClassFn,
