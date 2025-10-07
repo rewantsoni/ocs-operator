@@ -167,25 +167,27 @@ func (r *OCSInitializationReconciler) Reconcile(ctx context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
-	err = r.ensureSCCs(instance)
-	if err != nil {
-		reason := ocsv1.ReconcileFailed
-		message := fmt.Sprintf("Error while reconciling: %v", err)
-		util.SetErrorCondition(&instance.Status.Conditions, reason, message)
+	if r.AvailableCrds["clusterversions.config.openshift.io"] {
+		err = r.ensureSCCs(instance)
+		if err != nil {
+			reason := ocsv1.ReconcileFailed
+			message := fmt.Sprintf("Error while reconciling: %v", err)
+			util.SetErrorCondition(&instance.Status.Conditions, reason, message)
 
-		instance.Status.Phase = util.PhaseError
-		// don't want to overwrite the actual reconcile failure
-		uErr := r.Client.Status().Update(ctx, instance)
-		if uErr != nil {
-			r.Log.Error(uErr, "Failed to update conditions of OCSInitialization resource.", "OCSInitialization", klog.KRef(instance.Namespace, instance.Name))
+			instance.Status.Phase = util.PhaseError
+			// don't want to overwrite the actual reconcile failure
+			uErr := r.Client.Status().Update(ctx, instance)
+			if uErr != nil {
+				r.Log.Error(uErr, "Failed to update conditions of OCSInitialization resource.", "OCSInitialization", klog.KRef(instance.Namespace, instance.Name))
+			}
+			return reconcile.Result{}, err
 		}
-		return reconcile.Result{}, err
-	}
-	instance.Status.SCCsCreated = true
+		instance.Status.SCCsCreated = true
 
-	err = r.Client.Status().Update(ctx, instance)
-	if err != nil {
-		return reconcile.Result{}, err
+		err = r.Client.Status().Update(ctx, instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if r.AvailableCrds[ClusterClaimCrdName] {

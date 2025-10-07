@@ -293,7 +293,7 @@ func GetProviderAPIServerDeployment(instance *ocsv1.StorageCluster) *appsv1.Depl
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								RunAsNonRoot:           ptr.To(true),
+								RunAsUser:              ptr.To(int64(1000)),
 								ReadOnlyRootFilesystem: ptr.To(true),
 							},
 							VolumeMounts: []corev1.VolumeMount{

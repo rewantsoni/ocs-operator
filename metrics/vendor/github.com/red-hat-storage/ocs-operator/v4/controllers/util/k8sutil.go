@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"os"
 	"strings"
 	"time"
@@ -123,14 +124,24 @@ func IsSingleNodeDeployment() bool {
 }
 
 // getClusterID returns the cluster ID of the OCP-Cluster
-func GetClusterID(ctx context.Context, kubeClient client.Client, logger *logr.Logger) string {
+func GetClusterID(ctx context.Context, cl client.Client, logger *logr.Logger) string {
 	clusterVersion := &configv1.ClusterVersion{}
-	err := kubeClient.Get(ctx, types.NamespacedName{Name: "version"}, clusterVersion)
-	if err != nil {
+	clusterVersion.Name = "version"
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion); !meta.IsNoMatchError(err) && client.IgnoreNotFound(err) != nil {
 		logger.Error(err, "Failed to get the clusterVersion version of the OCP cluster")
 		return ""
 	}
-	return fmt.Sprint(clusterVersion.Spec.ClusterID)
+	if clusterVersion.UID != "" {
+		return string(clusterVersion.Spec.ClusterID)
+	}
+
+	systemNamespace := &corev1.Namespace{}
+	systemNamespace.Name = "kube-system"
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(systemNamespace), systemNamespace); err != nil {
+		logger.Error(err, "Failed to get the system namespace version of the OCP cluster")
+		return ""
+	}
+	return string(systemNamespace.UID)
 }
 
 // RestartPod restarts the pod with the given name in the given namespace by deleting it and letting another one be created

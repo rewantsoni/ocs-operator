@@ -372,6 +372,7 @@ func deployMetricsExporter(ctx context.Context, r *StorageClusterReconciler, ins
 			Spec: corev1.PodSpec{
 				SecurityContext: &corev1.PodSecurityContext{
 					RunAsNonRoot: ptr.To(true),
+					RunAsUser:    ptr.To(int64(2017)),
 				},
 				Containers: []corev1.Container{
 					{
@@ -485,7 +486,8 @@ func deployMetricsExporter(ctx context.Context, r *StorageClusterReconciler, ins
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
 							},
-							RunAsNonRoot:             ptr.To(true),
+							xNonRoot:                 ptr.To(true),
+							RunAsUser:                ptr.To(int64(2017)),
 							ReadOnlyRootFilesystem:   ptr.To(true),
 							Privileged:               ptr.To(false),
 							AllowPrivilegeEscalation: ptr.To(false),

@@ -41,6 +41,11 @@ var osdCleanupArgs = []string{
 // ensureCreated ensures if the osd removal job template exists
 func (obj *ocsJobTemplates) ensureCreated(r *StorageClusterReconciler, sc *ocsv1.StorageCluster) (reconcile.Result, error) {
 
+	if !r.AvailableCrds["clusterversions.config.openshift.io"] {
+		r.Log.Info("Skipping creation of osd and extendCluster Templates")
+		return reconcile.Result{}, nil
+	}
+
 	tempFuncs := []func(*ocsv1.StorageCluster) *openshiftv1.Template{
 		osdCleanUpTemplate,
 		extendClusterTemplate,

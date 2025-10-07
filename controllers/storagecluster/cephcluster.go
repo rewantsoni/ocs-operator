@@ -1419,16 +1419,15 @@ func getMonitoringClient() (*monitoringclient.Clientset, error) {
 func getIPFamilyConfig(c client.Client) (rookCephv1.IPFamilyType, bool, error) {
 	isIPv6 := false
 	isIPv4 := false
-	networkConfig := &configv1.Network{}
-	err := c.Get(context.TODO(), types.NamespacedName{Name: "cluster", Namespace: ""}, networkConfig)
-	if err != nil {
-		return "", false, fmt.Errorf("could not get network config details. %v", err)
+	svc := &corev1.Service{}
+	if err := c.Get(context.TODO(), types.NamespacedName{Name: "kubernetes", Namespace: "default"}, svc); err != nil {
+		return "", false, fmt.Errorf("could not get 'kubernetes' Service details: %v", err)
 	}
 
-	for _, cidr := range networkConfig.Status.ClusterNetwork {
-		if strings.Count(cidr.CIDR, ":") < 2 {
+	for _, family := range svc.Spec.IPFamilies {
+		if family == corev1.IPv4Protocol {
 			isIPv4 = true
-		} else if strings.Count(cidr.CIDR, ":") >= 2 {
+		} else if family == corev1.IPv6Protocol {
 			isIPv6 = true
 		}
 	}

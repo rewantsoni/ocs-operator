@@ -226,8 +226,6 @@ func (r *StorageClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&corev1.ConfigMap{}, builder.MatchEveryOwner, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&corev1.Secret{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&routev1.Route{}).
-		Owns(&templatev1.Template{}).
 		// Using builder.OnlyMetadata as we are only interested in the presence and not getting this resource anywhere
 		Watches(
 			&extv1.CustomResourceDefinition{},
@@ -268,6 +266,9 @@ func (r *StorageClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.AvailableCrds[StorageClientCrdName] {
 		build.Watches(&ocsclientv1a1.StorageClient{}, enqueueStorageClusterRequest)
 	}
-
+	if r.AvailableCrds["clusterversions.config.openshift.io"] {
+		build.Watches(&routev1.Route{}, enqueueStorageClusterRequest)
+		build.Watches(&templatev1.Template{}, enqueueStorageClusterRequest)
+	}
 	return build.Complete(r)
 }

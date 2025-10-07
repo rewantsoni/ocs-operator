@@ -146,6 +146,7 @@ func main() {
 	defaultNamespaces := map[string]cache.Config{
 		operatorNamespace:            {},
 		"openshift-storage-extended": {},
+		"default":                    {},
 	}
 
 	platform.Detect()
