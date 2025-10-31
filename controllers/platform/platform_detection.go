@@ -23,7 +23,6 @@ var (
 
 	// SkipObjectStorePlatforms is a list of all PlatformTypes where CephObjectStores will not be deployed.
 	SkipObjectStorePlatforms = []configv1.PlatformType{
-		configv1.AWSPlatformType,
 		configv1.GCPPlatformType,
 		configv1.AzurePlatformType,
 		configv1.IBMCloudPlatformType,
