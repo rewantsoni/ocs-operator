@@ -1,6 +1,7 @@
 package util
 
 import (
+	"cmp"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	ocsv1 "github.com/red-hat-storage/ocs-operator/api/v4/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"slices"
 
 	nbv1 "github.com/noobaa/noobaa-operator/v5/pkg/apis/noobaa/v1alpha1"
 	rookCephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
@@ -33,6 +35,7 @@ const (
 	rbdClientProfileKey             = "csiop-rbd-client-profile"
 	cephFsClientProfileKey          = "csiop-cephfs-client-profile"
 	nfsClientProfileKey             = "csiop-nfs-client-profile"
+	remoteRbdClientProfileKey       = "csiop-remote-rbd-client-profile"
 )
 
 type AvailableServices struct {
@@ -56,6 +59,7 @@ type StorageConsumerResources interface {
 	GetRbdClientProfileName() string
 	GetCephFsClientProfileName() string
 	GetNfsClientProfileName() string
+	GetRemoteRbdClientProfileNames() []string
 
 	// Setters
 	SetRbdRadosNamespaceName(string)
@@ -70,6 +74,7 @@ type StorageConsumerResources interface {
 	SetRbdClientProfileName(string)
 	SetCephFsClientProfileName(string)
 	SetNfsClientProfileName(string)
+	SetRemoteRbdClientProfileNames(...string)
 
 	ReplaceRbdRadosNamespaceName(string)
 	ReplaceSubVolumeGroupName(string)
@@ -83,6 +88,7 @@ type StorageConsumerResources interface {
 	ReplaceRbdClientProfileName(string)
 	ReplaceCephFsClientProfileName(string)
 	ReplaceNfsClientProfileName(string)
+	ReplaceRemoteRbdClientProfileNames(...string)
 }
 
 type storageConsumerResourceMapWrapper struct {
@@ -142,6 +148,14 @@ func (wrapper storageConsumerResourceMapWrapper) GetNfsClientProfileName() strin
 	return wrapper.data[nfsClientProfileKey]
 }
 
+func (wrapper storageConsumerResourceMapWrapper) GetRemoteRbdClientProfileNames() []string {
+	clientProfiles := make([]string, 0)
+	if err := json.Unmarshal([]byte(wrapper.data[remoteRbdClientProfileKey]), &clientProfiles); err != nil {
+		panic(err)
+	}
+	return clientProfiles
+}
+
 // Setters
 func (wrapper storageConsumerResourceMapWrapper) SetRbdRadosNamespaceName(name string) {
 	wrapper.data[rbdRadosNamespaceKey] = name
@@ -189,6 +203,17 @@ func (wrapper storageConsumerResourceMapWrapper) SetCephFsClientProfileName(name
 
 func (wrapper storageConsumerResourceMapWrapper) SetNfsClientProfileName(name string) {
 	wrapper.data[nfsClientProfileKey] = name
+}
+
+func (wrapper storageConsumerResourceMapWrapper) SetRemoteRbdClientProfileNames(s ...string) {
+	remoteRbdClientProfile := cmp.Or(wrapper.data[remoteRbdClientProfileKey], "[]")
+	clientProfiles := make([]string, 0)
+	if err := json.Unmarshal([]byte(remoteRbdClientProfile), &clientProfiles); err != nil {
+		panic(err)
+	}
+	clientProfiles = append(clientProfiles, s...)
+	slices.Sort(clientProfiles)
+	wrapper.data[remoteRbdClientProfileKey] = string(JsonMustMarshal(slices.Compact(clientProfiles)))
 }
 
 func (wrapper storageConsumerResourceMapWrapper) replaceIfExist(key, value string) {
@@ -243,6 +268,17 @@ func (wrapper storageConsumerResourceMapWrapper) ReplaceCephFsClientProfileName(
 
 func (wrapper storageConsumerResourceMapWrapper) ReplaceNfsClientProfileName(name string) {
 	wrapper.replaceIfExist(nfsClientProfileKey, name)
+}
+
+func (wrapper storageConsumerResourceMapWrapper) ReplaceRemoteRbdClientProfileNames(s ...string) {
+	remoteRbdClientProfile := cmp.Or(wrapper.data[remoteRbdClientProfileKey], "[]")
+	clientProfiles := make([]string, 0)
+	if err := json.Unmarshal([]byte(remoteRbdClientProfile), &clientProfiles); err != nil {
+		panic(err)
+	}
+	clientProfiles = append(clientProfiles, s...)
+	slices.Sort(clientProfiles)
+	wrapper.data[remoteRbdClientProfileKey] = string(JsonMustMarshal(slices.Compact(clientProfiles)))
 }
 
 func GetAvailableServices(ctx context.Context, kubeClient client.Client, storageCluster *ocsv1.StorageCluster) (*AvailableServices, error) {
