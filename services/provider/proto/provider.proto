@@ -187,6 +187,10 @@ message StorageClientsInfoRequest{
   repeated string clientIDs = 2;
 }
 
+message ClientProfileList {
+  repeated string value = 1;
+}
+
 message ClientInfo{
   // clientID holds a unique id that identifies an DF storage client
   string clientID = 1;
@@ -196,6 +200,8 @@ message ClientInfo{
   string rbdStorageID = 3;
   // clientProfiles hold the CSI operator ClientProfile names utilized by the client
   map<string,string> clientProfiles = 4;
+  // clientProfiles hold the CSI operator ClientProfile names utilized by the client
+  map<string,ClientProfileList> clientProfile = 5;
 }
 
 enum ErrorCode{
@@ -234,6 +240,7 @@ message BlockPoolInfo{
   string blockPoolName = 1;
   string mirroringToken = 2;
   string blockPoolID = 3;
+  repeated string blockPoolIDs = 4;
 }
 
 // BlockPoolsInfoResponse holds the response for GetBlockPoolInfo API request
