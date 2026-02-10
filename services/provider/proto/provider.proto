@@ -234,6 +234,7 @@ message BlockPoolInfo{
   string blockPoolName = 1;
   string mirroringToken = 2;
   string blockPoolID = 3;
+  repeated string blockPoolsIds = 4;
 }
 
 // BlockPoolsInfoResponse holds the response for GetBlockPoolInfo API request
