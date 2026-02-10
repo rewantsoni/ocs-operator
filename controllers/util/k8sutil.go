@@ -67,6 +67,7 @@ const (
 	//ForbidMirroringLabel is used to forbid mirroring for ceph resources such as CephBlockPool
 	ForbidMirroringLabel                   = "ocs.openshift.io/forbid-mirroring"
 	BlockPoolMirroringTargetIDAnnotation   = "ocs.openshift.io/mirroring-target-id"
+	BlockPoolMirroringTargetIDsAnnotation  = "ocs.openshift.io/mirroring-target-ids"
 	RequestMaintenanceModeAnnotation       = "ocs.openshift.io/request-maintenance-mode"
 	CephRBDMirrorName                      = "cephrbdmirror"
 	OcsClientTimeout                       = 10 * time.Second

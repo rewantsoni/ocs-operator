@@ -1076,10 +1076,16 @@ func (s *OCSProviderServer) GetBlockPoolsInfo(ctx context.Context, req *pb.Block
 			mirroringToken = string(secret.Data["token"])
 		}
 
+		remoteBlockPoolIDs := []string{}
+		if err := json.Unmarshal([]byte(cmp.Or(cephBlockPool.GetAnnotations()[util.BlockPoolMirroringTargetIDsAnnotation], "[]")), &remoteBlockPoolIDs); err != nil {
+			logger.Error(err, "failed to get mirroring block pool IDs")
+			continue
+		}
+
 		response.BlockPoolsInfo = append(response.BlockPoolsInfo, &pb.BlockPoolInfo{
 			BlockPoolName:  cephBlockPool.Name,
 			MirroringToken: mirroringToken,
-			BlockPoolID:    strconv.Itoa(cephBlockPool.Status.PoolID),
+			BlockPoolIDs:   append(remoteBlockPoolIDs, strconv.Itoa(cephBlockPool.Status.PoolID)),
 		})
 
 	}
@@ -2050,12 +2056,16 @@ func (s *OCSProviderServer) appendClientProfileMappingKubeResources(
 	blockPoolMapping := []csiopv1.BlockPoolIdPair{}
 	for i := range cbpList.Items {
 		cephBlockPool := &cbpList.Items[i]
-		remoteBlockPoolID := cephBlockPool.GetAnnotations()[util.BlockPoolMirroringTargetIDAnnotation]
-		if remoteBlockPoolID != "" {
-			localBlockPoolID := strconv.Itoa(cephBlockPool.Status.PoolID)
+		remoteBlockPoolIDs := []string{}
+		if err := json.Unmarshal([]byte(cmp.Or(cephBlockPool.GetAnnotations()[util.BlockPoolMirroringTargetIDsAnnotation], "[]")), &remoteBlockPoolIDs); err != nil {
+			return kubeResources, fmt.Errorf("failed to unmarshal block pool mirroring id annotation. %v", err)
+		}
+
+		localBlockPoolID := strconv.Itoa(cephBlockPool.Status.PoolID)
+		for i := range remoteBlockPoolIDs {
 			blockPoolMapping = append(
 				blockPoolMapping,
-				csiopv1.BlockPoolIdPair{localBlockPoolID, remoteBlockPoolID},
+				csiopv1.BlockPoolIdPair{localBlockPoolID, remoteBlockPoolIDs[i]},
 			)
 		}
 	}

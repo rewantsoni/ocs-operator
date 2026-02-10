@@ -424,8 +424,8 @@ func (r *MirroringReconciler) reconcileBlockPoolMirroring(
 				_, err = controllerutil.CreateOrUpdate(r.ctx, r.Client, cephBlockPool, func() error {
 					util.AddAnnotation(
 						cephBlockPool,
-						util.BlockPoolMirroringTargetIDAnnotation,
-						response.BlockPoolsInfo[i].BlockPoolID,
+						util.BlockPoolMirroringTargetIDsAnnotation,
+						string(util.JsonMustMarshal(response.BlockPoolsInfo[i].BlockPoolIDs)),
 					)
 
 					cephBlockPool.Spec.Mirroring.Enabled = true
