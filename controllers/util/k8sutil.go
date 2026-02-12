@@ -60,20 +60,22 @@ const (
 	OdfInfoNamespacedNameClaimName = "odfinfo.odf.openshift.io"
 
 	//ForbidMirroringLabel is used to forbid mirroring for ceph resources such as CephBlockPool
-	ForbidMirroringLabel                   = "ocs.openshift.io/forbid-mirroring"
-	BlockPoolMirroringTargetIDAnnotation   = "ocs.openshift.io/mirroring-target-id"
-	RequestMaintenanceModeAnnotation       = "ocs.openshift.io/request-maintenance-mode"
-	CephRBDMirrorName                      = "cephrbdmirror"
-	OcsClientTimeout                       = 10 * time.Second
-	StorageClientMappingConfigName         = "storage-client-mapping"
-	ExternalClassLabelKey                  = "storageclass.ocs.openshift.io/is-external"
-	StorageConsumerMirroringInfoAnnotation = "ocs.openshift.io/consumer-mirroring-info"
-	ForceDeletionAnnotationKey             = "ocs.openshift.io/force-deletion"
-	RookForceDeletionAnnotationKey         = "rook.io/force-deletion"
-	BackwardCompatabilityInfoAnnotationKey = "ocs.openshift.io/backward-compatability-info"
-	CsiCephUserGenerationLabelKey          = "ocs.openshift.io/csi-ceph-user-generation"
-	CreatedAtDfVersionLabelKey             = "ocs.openshift.io/created-at-df-version"
-	ForInternalUseOnlyLabelKey             = "ocs.openshift.io/for-internal-use-only"
+	ForbidMirroringLabel                      = "ocs.openshift.io/forbid-mirroring"
+	BlockPoolMirroringTargetIDAnnotation      = "ocs.openshift.io/mirroring-target-id"
+	BlockPoolMirroringInfoAnnotationKey       = "ocs.openshift.io/blockpool-mirroring-info-%s"
+	RequestMaintenanceModeAnnotation          = "ocs.openshift.io/request-maintenance-mode"
+	CephRBDMirrorName                         = "cephrbdmirror"
+	OcsClientTimeout                          = 10 * time.Second
+	StorageClientMappingConfigName            = "storage-client-mapping"
+	ExternalClassLabelKey                     = "storageclass.ocs.openshift.io/is-external"
+	StorageConsumerMirroringInfoAnnotation    = "ocs.openshift.io/consumer-mirroring-info"
+	StorageConsumerMirroringInfoAnnotationKey = "ocs.openshift.io/consumer-mirroring-info-%s"
+	ForceDeletionAnnotationKey                = "ocs.openshift.io/force-deletion"
+	RookForceDeletionAnnotationKey            = "rook.io/force-deletion"
+	BackwardCompatabilityInfoAnnotationKey    = "ocs.openshift.io/backward-compatability-info"
+	CsiCephUserGenerationLabelKey             = "ocs.openshift.io/csi-ceph-user-generation"
+	CreatedAtDfVersionLabelKey                = "ocs.openshift.io/created-at-df-version"
+	ForInternalUseOnlyLabelKey                = "ocs.openshift.io/for-internal-use-only"
 )
 
 type BackwardCompatabilityInfo struct {
@@ -370,4 +372,12 @@ func mutate(f controllerutil.MutateFn, key client.ObjectKey, obj client.Object) 
 		return fmt.Errorf("MutateFn cannot mutate object name and/or object namespace")
 	}
 	return nil
+}
+
+func GetBlockPoolMirroringInfoAnnotationKey(storageClusterUid string) string {
+	return fmt.Sprintf(BlockPoolMirroringInfoAnnotationKey, storageClusterUid)
+}
+
+func GetStorageConsumerMirroringInfoAnnotationKey(storageClientUid string) string {
+	return fmt.Sprintf(StorageConsumerMirroringInfoAnnotationKey, storageClientUid)
 }
