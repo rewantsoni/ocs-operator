@@ -1076,13 +1076,26 @@ func (s *OCSProviderServer) GetBlockPoolsInfo(ctx context.Context, req *pb.Block
 			mirroringToken = string(secret.Data["token"])
 		}
 
-		response.BlockPoolsInfo = append(response.BlockPoolsInfo, &pb.BlockPoolInfo{
-			BlockPoolName:  cephBlockPool.Name,
-			MirroringToken: mirroringToken,
-			BlockPoolID:    strconv.Itoa(cephBlockPool.Status.PoolID),
-		})
+		blockPoolConnectionRecords := []*pb.BlockPoolConnectionRecord{}
 
+		for annotationKey, annotationValue := range cephBlockPool.Annotations {
+			if strings.HasPrefix(annotationKey, util.BlockPoolMirroringInfoAnnotationKey) {
+				record := &pb.BlockPoolConnectionRecord{}
+				if err := json.Unmarshal([]byte(annotationValue), record); err != nil {
+					continue
+				}
+				blockPoolConnectionRecords = append(blockPoolConnectionRecords, record)
+			}
+		}
+
+		response.BlockPoolsInfo = append(response.BlockPoolsInfo, &pb.BlockPoolInfo{
+			BlockPoolName:              cephBlockPool.Name,
+			MirroringToken:             mirroringToken,
+			BlockPoolID:                strconv.Itoa(cephBlockPool.Status.PoolID),
+			BlockPoolConnectionRecords: blockPoolConnectionRecords,
+		})
 	}
+
 	logger.Info("Successfully returned from GetBlockPoolsInfo")
 	return response, nil
 }
