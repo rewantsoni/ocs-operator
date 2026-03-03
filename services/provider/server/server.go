@@ -1005,13 +1005,35 @@ func (s *OCSProviderServer) GetStorageClientsInfo(ctx context.Context, req *pb.S
 			continue
 		}
 
-		clientInfo := &pb.ClientInfo{ClientID: req.ClientIDs[i], ClientProfiles: map[string]string{}}
+		clientInfo := &pb.ClientInfo{
+			ClientID:                req.ClientIDs[i],
+			ClientProfiles:          map[string]string{},
+			ClientConnectionRecords: []*pb.ClientConnectionRecord{},
+		}
+
+		for annotationKey := range consumer.Annotations {
+			if strings.HasPrefix(annotationKey, util.StorageConsumerMirroringInfoAnnotationKey) {
+				record := &pb.ClientConnectionRecord{}
+				if err := json.Unmarshal([]byte(consumer.Annotations[annotationKey]), record); err != nil {
+					continue
+				}
+				clientInfo.ClientConnectionRecords = append(clientInfo.ClientConnectionRecords, record)
+			}
+		}
 
 		consumerConfig := util.WrapStorageConsumerResourceMap(consumerConfigMap.Data)
 		if rns := consumerConfig.GetRbdRadosNamespaceName(); rns != "" {
 			clientInfo.RadosNamespace = rns
 			clientInfo.RbdStorageID = calculateCephRbdStorageID(fsid, rns)
-			clientInfo.ClientProfiles[clientInfoRbdClientProfileKey] = consumerConfig.GetRbdClientProfileName()
+			clientInfo.ClientConnectionRecords = append(
+				clientInfo.ClientConnectionRecords,
+				&pb.ClientConnectionRecord{
+					StorageClientUid: req.ClientIDs[i],
+					ClientProfiles: map[string]string{
+						clientInfoRbdClientProfileKey: consumerConfig.GetRbdClientProfileName(),
+					},
+				},
+			)
 		}
 
 		response.ClientsInfo = append(response.ClientsInfo, clientInfo)
