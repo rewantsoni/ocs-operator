@@ -15,7 +15,6 @@ package mirroring
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -544,11 +543,17 @@ func (r *MirroringReconciler) reconcileRadosNamespaceMirroring(
 
 			consumer := storageConsumerByRemoteClientID[clientInfo.ClientID]
 			remoteNamespaceByClientID[consumer.Status.Client.ID] = clientInfo.RadosNamespace
-			marshaledClientInfo, err := json.Marshal(clientInfo)
-			if err != nil {
-				panic("failed to marshal")
+
+			for i := range clientInfo.ClientConnectionRecords {
+				record := clientInfo.ClientConnectionRecords[i]
+				if record.StorageClientUid != consumer.Status.Client.ID {
+					util.AddAnnotation(
+						consumer,
+						util.GetStorageConsumerMirroringInfoAnnotationKey(record.StorageClientUid),
+						string(util.JsonMustMarshal(record)),
+					)
+				}
 			}
-			util.AddAnnotation(consumer, util.StorageConsumerMirroringInfoAnnotation, string(marshaledClientInfo))
 			if err := r.update(consumer); err != nil {
 				r.log.Error(
 					err,
