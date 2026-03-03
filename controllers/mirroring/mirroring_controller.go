@@ -339,6 +339,11 @@ func (r *MirroringReconciler) reconcileBlockPoolMirroring(
 ) bool {
 	errorOccurred := false
 
+	storageCluster, err := util.GetStorageClusterInNamespace(r.ctx, r.Client, storageClusterPeer.Namespace)
+	if err != nil {
+		return false
+	}
+
 	cephBlockPoolsList := &rookCephv1.CephBlockPoolList{}
 	if err := r.list(
 		cephBlockPoolsList,
@@ -424,11 +429,14 @@ func (r *MirroringReconciler) reconcileBlockPoolMirroring(
 
 				// We need to enable mirroring for the blockPool, else the mirroring secret will not be generated
 				_, err = controllerutil.CreateOrUpdate(r.ctx, r.Client, cephBlockPool, func() error {
-					util.AddAnnotation(
-						cephBlockPool,
-						util.BlockPoolMirroringTargetIDAnnotation,
-						response.BlockPoolsInfo[i].BlockPoolID,
-					)
+
+					for j := range response.BlockPoolsInfo[i].BlockPoolConnectionRecords {
+						record := response.BlockPoolsInfo[i].BlockPoolConnectionRecords[j]
+						// We don't want the current clusters info added to the BlockPoolMirroringInfoAnnotation
+						if record.StorageClusterUid != string(storageCluster.UID) {
+							util.AddAnnotation(cephBlockPool, util.GetBlockPoolMirroringInfoAnnotationKey(record.StorageClusterUid), string(util.JsonMustMarshal(record)))
+						}
+					}
 
 					cephBlockPool.Spec.Mirroring.Enabled = true
 					cephBlockPool.Spec.Mirroring.Mode = "init-only"
