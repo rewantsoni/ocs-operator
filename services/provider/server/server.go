@@ -1312,7 +1312,6 @@ func (s *OCSProviderServer) getKubeResources(ctx context.Context, logger logr.Lo
 		kubeResources,
 		consumer,
 		consumerConfig,
-		mirroringTargetInfo,
 	)
 	if err != nil {
 		return nil, err
@@ -2041,7 +2040,6 @@ func (s *OCSProviderServer) appendClientProfileMappingKubeResources(
 	kubeResources []client.Object,
 	consumer *ocsv1alpha1.StorageConsumer,
 	consumerConfig util.StorageConsumerResources,
-	mirroringTargetInfo *pb.ClientInfo,
 ) ([]client.Object, error) {
 	cbpList := &rookCephv1.CephBlockPoolList{}
 	if err := s.client.List(ctx, cbpList, client.InNamespace(s.namespace)); err != nil {
@@ -2050,36 +2048,48 @@ func (s *OCSProviderServer) appendClientProfileMappingKubeResources(
 	blockPoolMapping := []csiopv1.BlockPoolIdPair{}
 	for i := range cbpList.Items {
 		cephBlockPool := &cbpList.Items[i]
-		remoteBlockPoolID := cephBlockPool.GetAnnotations()[util.BlockPoolMirroringTargetIDAnnotation]
-		if remoteBlockPoolID != "" {
-			localBlockPoolID := strconv.Itoa(cephBlockPool.Status.PoolID)
-			blockPoolMapping = append(
-				blockPoolMapping,
-				csiopv1.BlockPoolIdPair{localBlockPoolID, remoteBlockPoolID},
-			)
+		localBlockPoolID := strconv.Itoa(cephBlockPool.Status.PoolID)
+		for annotationKey := range cephBlockPool.Annotations {
+			if strings.HasPrefix(annotationKey, util.BlockPoolMirroringInfoAnnotationKey) {
+				record := &pb.BlockPoolConnectionRecord{}
+				if err := json.Unmarshal([]byte(cephBlockPool.Annotations[annotationKey]), record); err != nil {
+					return nil, err
+				}
+				blockPoolMapping = append(
+					blockPoolMapping,
+					csiopv1.BlockPoolIdPair{localBlockPoolID, record.BlockPoolId},
+				)
+			}
 		}
 	}
 
-	remoteClientProfileName := mirroringTargetInfo.ClientProfiles[clientInfoRbdClientProfileKey]
-	if len(blockPoolMapping) > 0 && remoteClientProfileName != "" {
-		kubeResources = append(
-			kubeResources,
-			&csiopv1.ClientProfileMapping{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      consumer.Status.Client.Name,
-					Namespace: consumer.Status.Client.OperatorNamespace,
-				},
-				Spec: csiopv1.ClientProfileMappingSpec{
-					Mappings: []csiopv1.MappingsSpec{
-						{
-							LocalClientProfile:  consumerConfig.GetRbdClientProfileName(),
-							RemoteClientProfile: remoteClientProfileName,
-							BlockPoolIdMapping:  blockPoolMapping,
+	if len(blockPoolMapping) > 0 {
+		for annotationKey := range consumer.Annotations {
+			if strings.HasPrefix(annotationKey, util.StorageConsumerMirroringInfoAnnotationKey) {
+				record := &pb.ClientConnectionRecord{}
+				if err := json.Unmarshal([]byte(consumer.Annotations[annotationKey]), record); err != nil {
+					return nil, err
+				}
+				kubeResources = append(
+					kubeResources,
+					&csiopv1.ClientProfileMapping{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      consumer.Status.Client.Name,
+							Namespace: consumer.Status.Client.OperatorNamespace,
+						},
+						Spec: csiopv1.ClientProfileMappingSpec{
+							Mappings: []csiopv1.MappingsSpec{
+								{
+									LocalClientProfile:  consumerConfig.GetRbdClientProfileName(),
+									RemoteClientProfile: record.ClientProfiles[clientInfoRbdClientProfileKey],
+									BlockPoolIdMapping:  blockPoolMapping,
+								},
+							},
 						},
 					},
-				},
-			},
-		)
+				)
+			}
+		}
 	}
 	return kubeResources, nil
 }
