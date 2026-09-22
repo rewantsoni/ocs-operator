@@ -1062,16 +1062,11 @@ func getUnsupportedClientsCount(r *StorageClusterReconciler, namespace string) (
 		return -1, err
 	}
 	var count int
-	providerVersion, _ := semver.Make(version.Version)
 	for idx := range scList.Items {
 		// Local client operator subscription is managed by ODF operator; exclude it from this check.
 		if scList.Items[idx].GetName() != defaults.LocalStorageConsumerName && scList.Items[idx].Status.Client != nil {
-			clientVersion, err := semver.Make(scList.Items[idx].Status.Client.OperatorVersion)
-			if err == nil {
-				if providerVersion.Major != clientVersion.Major || providerVersion.Minor > clientVersion.Minor {
-					count++
-				}
-			} else {
+			_, err := semver.Make(scList.Items[idx].Status.Client.OperatorVersion)
+			if err != nil {
 				r.Log.Error(err, "Failed to parse client operator version", "StorageConsumer", scList.Items[idx].GetName())
 				count++
 			}

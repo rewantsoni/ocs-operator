@@ -225,24 +225,6 @@ func (s *OCSProviderServer) OnboardConsumer(ctx context.Context, req *pb.Onboard
 	logger := klog.FromContext(ctx).WithName("OnboardConsumer")
 	logger.Info("Starting OnboardConsumer RPC", "request", req)
 
-	version, err := semver.FinalizeVersion(req.ClientOperatorVersion)
-	if err != nil {
-		logger.Error(err, "Malformed ClientOperatorVersion provided", "clientOperatorVersion", req.ClientOperatorVersion)
-		return nil, status.Errorf(codes.InvalidArgument, "malformed ClientOperatorVersion for client %q is provided. %v", req.ConsumerName, err)
-	}
-
-	serverVersion, _ := semver.Make(ocsVersion.Version)
-	clientVersion, _ := semver.Make(version)
-	if serverVersion.Major != clientVersion.Major || serverVersion.Minor != clientVersion.Minor {
-		logger.Error(
-			fmt.Errorf("version mismatch"),
-			"Server and client operator versions do not match",
-			"server version", serverVersion,
-			"client version", clientVersion,
-		)
-		return nil, status.Errorf(codes.FailedPrecondition, "both server and client %q operators major and minor versions should match for onboarding process", req.ConsumerName)
-	}
-
 	pubKey, err := s.getOnboardingValidationKey(ctx)
 	if err != nil {
 		logger.Error(err, "Failed to get public key to validate onboarding ticket")
@@ -3080,13 +3062,6 @@ func checkClientPreConditions(consumer *ocsv1alpha1.StorageConsumer, ocsOpVersio
 		return false
 	}
 
-	ocsOpSemver := semver.MustParse(ocsOpVersion)
-	clientOpSemver := semver.MustParse(clientOpVersion)
-	if ocsOpSemver.Major < clientOpSemver.Major ||
-		(ocsOpSemver.Major == clientOpSemver.Major && ocsOpSemver.Minor < clientOpSemver.Minor) {
-		logger.Error(fmt.Errorf("failed precondition"), "client version is ahead of server version")
-		return false
-	}
 	return true
 }
 
